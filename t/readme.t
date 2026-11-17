@@ -1,8 +1,9 @@
 #!/usr/bin/env perl
 #
-# README.md is generated from the POD, so the two can only drift when one is
-# edited and the other is not - which is invisible until the next regeneration
-# quietly undoes the edit.  This compares them, and says which line differs.
+# README.md is generated from the POD of the module the distribution is named
+# after, so the two can only drift when one is edited and the other is not -
+# which is invisible until the next regeneration quietly undoes the edit.  This
+# compares them, and says which line differs.
 
 use strict;
 use warnings;
@@ -14,7 +15,7 @@ use File::Spec;
 use File::Temp qw(tempdir);
 
 my $ROOT = File::Spec->catdir(dirname(File::Spec->rel2abs($0)), File::Spec->updir());
-my $SOURCE = File::Spec->catfile($ROOT, 'bin', 'dmarc-report.pl');
+my $SOURCE = File::Spec->catfile($ROOT, 'lib', 'Mail', 'Send', 'DKIM.pm');
 my $README = File::Spec->catfile($ROOT, 'README.md');
 
 plan skip_all => "Cannot find $SOURCE" unless(-r $SOURCE);
@@ -63,7 +64,7 @@ if(!$pid) {
 	chdir($ROOT) or exit 127;
 	open(STDOUT, '>', $out) or exit 127;
 	open(STDERR, '>', $err) or exit 127;
-	exec($pod2github, 'bin/dmarc-report.pl') or exit 127;
+	exec($pod2github, 'lib/Mail/Send/DKIM.pm') or exit 127;
 }
 
 waitpid($pid, 0);
@@ -77,7 +78,7 @@ my $committed = slurp($README);
 
 # The heading shift leaves the document with no H1, which is what the header
 # file is for; if the config is ignored this is the first thing to break.
-like($generated, qr{\A# dmarc-report\n}, 'the header file supplies the H1 title');
+like($generated, qr{\A# Mail::Send::DKIM\n}, 'the header file supplies the H1 title');
 
 if($generated ne $committed) {
 	my @generated = split(/\n/, $generated);
@@ -89,7 +90,7 @@ if($generated ne $committed) {
 	}
 
 	diag('README.md is out of date; regenerate it with:');
-	diag('    pod2github bin/dmarc-report.pl > README.md');
+	diag('    pod2github lib/Mail/Send/DKIM.pm > README.md');
 	diag('first difference at line ' . ($first + 1) . ':');
 	diag('  generated: ' . ($generated[$first] // '(end of file)'));
 	diag('  README.md: ' . ($committed[$first] // '(end of file)'));

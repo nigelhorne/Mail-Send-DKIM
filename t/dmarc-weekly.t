@@ -14,6 +14,8 @@ use Test::Most;
 
 use Cwd qw(abs_path);
 use File::Basename qw(dirname);
+use File::Copy qw(copy);
+use File::Path qw(make_path);
 use File::Spec;
 use File::Temp qw(tempdir);
 
@@ -101,6 +103,12 @@ sub run_wrapper
 	my $args = (ref($rest[0]) eq 'ARRAY') ? shift(@rest) : [];
 	my %env = @rest;
 
+	# Which copy of the wrapper to run: the one in the source tree by default,
+	# and an installed copy where a subtest is about the installed layout.  It
+	# is taken out of the environment, so it never reaches the child as a
+	# variable the script might read.
+	my $program = delete($env{'program'}) // $WRAPPER;
+
 	my $out = File::Spec->catfile($main::TMP, 'stdout.txt');
 	my $err = File::Spec->catfile($main::TMP, 'stderr.txt');
 	my $mail = File::Spec->catfile($main::TMP, 'mail.txt');
@@ -130,7 +138,7 @@ sub run_wrapper
 		}
 		open(STDOUT, '>', $out) or exit 127;
 		open(STDERR, '>', $err) or exit 127;
-		exec($WRAPPER, @$args) or exit 127;
+		exec($program, @$args) or exit 127;
 	}
 
 	waitpid($pid, 0);
@@ -360,6 +368,72 @@ subtest 'without a signer the alert still goes, by the plain route' => sub {
 
 	is($status, 1, 'a signer that fails does not change the status');
 	like($mail, qr/198\.51\.100\.23/, 'and the mail went by the fallback anyway');
+};
+
+subtest 'the installed wrapper works from a prefix, with no PERL5LIB' => sub {
+	# The layout INSTALL_BASE produces: everything in PREFIX/bin, the module in
+	# PREFIX/lib/perl5, and nothing on @INC pointing at the prefix.  The wrapper
+	# execs the summariser beside itself and, on a finding, the signer beside
+	# itself, which in turn has to find the module down in lib/perl5.
+	my $prefix = File::Spec->catdir($main::TMP, 'installed-prefix');
+	my $bin = File::Spec->catdir($prefix, 'bin');
+	my $module_dir = File::Spec->catdir($prefix, 'lib', 'perl5', 'Mail', 'Send');
+	make_path($bin, $module_dir) or die "Cannot make the installed prefix: $!";
+
+	my $root = File::Spec->catdir(dirname($WRAPPER), File::Spec->updir());
+	foreach my $file (qw(dmarc-weekly.sh dmarc-report.pl mail-dkim)) {
+		copy(File::Spec->catfile($root, 'bin', $file), File::Spec->catfile($bin, $file))
+			or die "Cannot copy $file into the prefix: $!";
+		chmod(0755, File::Spec->catfile($bin, $file))
+			or die "Cannot make $file executable: $!";
+	}
+	copy(File::Spec->catfile($root, 'lib', 'Mail', 'Send', 'DKIM.pm'),
+		File::Spec->catfile($module_dir, 'DKIM.pm'))
+		or die "Cannot copy the module into the prefix: $!";
+
+	my $installed = File::Spec->catfile($bin, 'dmarc-weekly.sh');
+	my $home = fresh_home('installed');
+	my $archive = File::Spec->catdir($home, 'dmarc-archive');
+
+	my $clean = reports_dir('installed-clean');
+	write_file(File::Spec->catfile($clean, 'ok.xml'),
+		report_xml(name => 'ok.xml', domain => 'example.org'));
+
+	my ($status, $out, $err) = run_wrapper(HOME => $home, DMARC_DIR => $clean, program => $installed);
+	is($status, 0, 'a clean week from the installed copy exits 0');
+	is($out . $err, '', 'and says nothing') or diag($out . $err);
+	ok(-f File::Spec->catfile($archive, 'ok.xml'),
+		'so the summariser beside it ran, and the report was archived');
+
+	# The alert is the interesting half: the wrapper hands it to the signer
+	# beside itself, which loads the module from PREFIX/lib/perl5 or not at all.
+	SKIP: {
+		skip 'openssl and Mail::DKIM are needed to sign an alert', 3
+			unless($OPENSSL && eval { require Mail::DKIM::Signer; 1 });
+
+		my $keys = File::Spec->catdir($home, 'keys');
+		mkdir($keys) or die "Cannot mkdir $keys: $!";
+		system(qq{"$OPENSSL" genrsa -out "$keys/selector1.private" 2048 2>} . File::Spec->devnull()) == 0
+			or BAIL_OUT('openssl could not make a key');
+
+		my $capture = File::Spec->catfile($home, 'sent.txt');
+		my $sendmail = File::Spec->catfile($home, 'sendmail');
+		write_file($sendmail, "#!/bin/sh\ncat > \"$capture\"\n");
+		chmod(0755, $sendmail) or die "Cannot make $sendmail executable: $!";
+
+		my $finding = reports_dir('installed-finding');
+		write_file(File::Spec->catfile($finding, 'bad.xml'),
+			report_xml(name => 'bad.xml', domain => 'example.org', ip => '203.0.113.7', count => 3));
+
+		my ($code, $stdout, $stderr) = run_wrapper(HOME => $home, DMARC_DIR => $finding, program => $installed,
+			MAIL_COMMAND => '', DKIM_DOMAINS => 'example.org', DKIM_KEYDIR => $keys,
+			MAIL_FROM => 'alerts@example.org', SENDMAIL => $sendmail);
+
+		is($code, 1, 'a finding from the installed copy still exits 1');
+		is($stderr, '', 'and says nothing on stderr') or diag($stderr);
+		like(slurp($capture), qr/\ADKIM-Signature: /,
+			'the alert was signed, so the signer found the module under lib/perl5');
+	}
 };
 
 done_testing();

@@ -41,8 +41,8 @@ WriteMakefile(
 	},
 	'META_MERGE' => {
 		'resources' => {
-			'repository' => 'https://github.com/nigelhorne/mail-send-dkim',
-			'bugtracker' => 'https://github.com/nigelhorne/mail-send-dkim/issues',
+			'repository' => 'https://github.com/nigelhorne/Mail-Send-DKIM',
+			'bugtracker' => 'https://github.com/nigelhorne/Mail-Send-DKIM/issues',
 		},
 	},
 );

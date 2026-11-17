@@ -295,6 +295,49 @@ B<DKIM_DOMAINS>, B<DKIM_KEYDIR>, B<DKIM_SELECTOR>, B<DKIM_KEYFILE> and
 B<SENDMAIL> are read by B<new> when the corresponding option is not given, so
 the command line programme needs no configuration of its own.
 
+=head1 PROGRAMMES
+
+The distribution is named after this module and installs four programmes with
+it, each with a page of its own.
+
+=over 4
+
+=item L<bin/mail-dkim>
+
+The front end to this module: a message on standard input is signed when its
+C<From:> domain is one named in C<DKIM_DOMAINS>, and handed to sendmail(1) with
+the arguments it was given.  Put it where a script or a crontab calls sendmail
+and the mail is signed without the script being changed.  Its page has the
+environment variables, the key layout and the exit status.
+
+=item L<bin/dmarc-report.pl>
+
+Reads a directory of DMARC aggregate reports and says who sent mail for each
+domain, marking every source that is not an expected one (C<DMARC_EXPECTED>),
+every expected one whose mail did not authenticate, and every message that was
+quarantined or rejected by policy despite passing.  The exit status is non-zero
+when anything needs looking at.  Its page has the options.
+
+=item L<bin/dmarc-weekly.sh>
+
+The cron wrapper around it: silent when the week is clean, a mail with the full
+output when it is not, and the reports moved aside to an archive afterwards.
+C<--dry-run> rehearses a run and C<--crontab> prints the line to paste into a
+crontab; see L</A CRONTAB ENTRY> below.
+
+=item L<bin/dmarc-check-mail.pl>
+
+Sends one message, signed with this module, to a mailbox that can be read, so
+that the C<Authentication-Results> header at the far end shows what receivers
+make of this host's mail before the DMARC policy is tightened.  C<--plain>
+sends the same message unsigned, which is what a cron job without the module
+looks like.
+
+=back
+
+The three DMARC programmes are the reason the module exists: they report on the
+mail it signs, and the weekly one sends its own report through it.
+
 =head1 A CRONTAB ENTRY
 
 A job that sends mail from cron is where an unsigned message is least likely to
@@ -328,12 +371,8 @@ arguments given to it are passed to sendmail(1) as they are.
 
 =head1 SEE ALSO
 
-L<bin/mail-dkim>, the command line front end; L<bin/dmarc-check-mail.pl>, which
-sends one test message through this module so that its signature can be read at
-the far end; and L<bin/dmarc-report.pl> with F<dmarc-weekly.sh>, which
-summarise the DMARC reports that the signed mail produces.  The distribution is
-named after this module and installs all of them, and L<Mail::DKIM::Signer> is
-what does the signing underneath.
+L<Mail::DKIM::Signer>, which does the signing underneath, and L</PROGRAMMES>
+above for the programmes this distribution installs beside the module.
 
 =head1 LICENCE
 

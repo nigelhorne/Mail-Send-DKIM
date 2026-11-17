@@ -761,11 +761,11 @@ to pass through unsigned and the errors that have to be warnings.  The
 programme itself is then tested only for its wiring: stdin in, sendmail's
 arguments out, sendmail's exit status back.
 
-C<t/readme.t> runs pod2github over this file and fails if the committed
-README.md is not what it produces, so the two cannot drift apart.  Regenerate
-it with:
+C<t/readme.t> runs pod2github over L<Mail::Send::DKIM> - the module this
+distribution is named after - and fails if the committed README.md is not what
+it produces, so the two cannot drift apart.  Regenerate it with:
 
-	pod2github bin/dmarc-report.pl > README.md
+	pod2github lib/Mail/Send/DKIM.pm > README.md
 
 The title in that output comes from C<.pod2github-header.md>, named by
 C<.pod2github.yml>: the generator shifts the POD headings down a level, which
