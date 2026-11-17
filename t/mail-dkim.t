@@ -15,6 +15,7 @@ use Test::Most;
 
 use File::Basename qw(dirname);
 use File::Copy qw(copy);
+use File::Path qw(make_path);
 use File::Spec;
 use File::Temp qw(tempdir);
 use FindBin qw($Bin);
@@ -404,6 +405,44 @@ sub run_script
 
 # One run of the real programme, because everything else is the module: what is
 # left to get wrong here is stdin, the argument list and the exit status.
+subtest 'an installed copy finds the module under lib/perl5' => sub {
+	# The layout INSTALL_BASE produces: PREFIX/bin/<script> and the module at
+	# PREFIX/lib/perl5, with nothing on @INC pointing at the prefix.  cron is
+	# the caller that cannot be given PERL5LIB, so the script has to look.
+	my $prefix = File::Spec->catdir($TMP, 'prefix');
+	my $bin = File::Spec->catdir($prefix, 'bin');
+	my $installed_lib = File::Spec->catdir($prefix, 'lib', 'perl5', 'Mail', 'Send');
+	make_path($bin, $installed_lib) or BAIL_OUT("Cannot make the prefix: $!");
+
+	copy(File::Spec->catfile($Bin, File::Spec->updir(), 'lib', 'Mail', 'Send', 'DKIM.pm'),
+		File::Spec->catfile($installed_lib, 'DKIM.pm'))
+		or BAIL_OUT("Cannot copy the module into the prefix: $!");
+
+	foreach my $script (qw(mail-dkim dmarc-check-mail.pl)) {
+		my $installed = File::Spec->catfile($bin, $script);
+		copy(File::Spec->catfile($Bin, File::Spec->updir(), 'bin', $script), $installed)
+			or BAIL_OUT("Cannot copy $script into the prefix: $!");
+
+		my $out = File::Spec->catfile($TMP, "compiled-$script.txt");
+		my $pid = fork();
+		die "fork: $!" unless(defined($pid));
+
+		if(!$pid) {
+			delete($ENV{'PERL5LIB'});
+			open(STDOUT, '>', $out) or exit 127;
+			open(STDERR, '>&', \*STDOUT) or exit 127;
+			exec($^X, '-c', $installed) or exit 127;
+		}
+
+		waitpid($pid, 0);
+
+		is($? >> 8, 0, "$script compiles with no PERL5LIB");
+		like(slurp($out), qr/syntax OK/, 'and it found the module, rather than failing on @INC')
+			or diag(slurp($out));
+		unlike(slurp($out), qr/Can't locate Mail\/Send\/DKIM/, 'no missing-module error');
+	}
+};
+
 subtest 'the programme, end to end: stdin in, sendmail out, status back' => sub {
 	my $input = message(from => 'alerts@example.org');
 	my ($status, $err, $sent, $args) = run_script($input, '-t', '-f', 'bounce@example.org');

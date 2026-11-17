@@ -27,7 +27,9 @@ use POSIX qw(strftime);
 use Sys::Hostname qw(hostname);
 
 use FindBin qw($Bin);
-use lib grep { -d } "$Bin/../lib";
+# Beside the module in a checkout, and under lib/perl5 when installed with
+# INSTALL_BASE into a prefix that @INC does not reach on its own.
+use lib grep { -d } map { "$Bin/../$_" } qw(lib lib/perl5);
 
 my %opt = (
 	'to' => $ENV{'DMARC_TEST_TO'} || 'nigel@example.org',

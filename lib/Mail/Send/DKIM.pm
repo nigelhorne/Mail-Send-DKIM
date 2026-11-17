@@ -295,6 +295,37 @@ B<DKIM_DOMAINS>, B<DKIM_KEYDIR>, B<DKIM_SELECTOR>, B<DKIM_KEYFILE> and
 B<SENDMAIL> are read by B<new> when the corresponding option is not given, so
 the command line programme needs no configuration of its own.
 
+=head1 A CRONTAB ENTRY
+
+A job that sends mail from cron is where an unsigned message is least likely to
+be noticed, so that is usually where this module earns its keep: the programme
+that ships with it, F<mail-dkim>, is put where the job would have called
+sendmail(1), and the job itself is not changed.
+
+The weekly summary in this distribution is such a job, and its mail goes out
+through F<mail-dkim>.  A crontab line for it looks like this, with the values of
+the machine it runs on:
+
+	0 6 * * 1 DMARC_EXPECTED=192.0.2.10 MAIL_TO=alerts@example.org \
+		PERL=/usr/bin/perl /usr/local/bin/dmarc-weekly.sh
+
+The three settings are not optional, because cron starts a job with almost no
+environment.  C<DMARC_EXPECTED> is what makes a sender nobody expected a
+finding, and the run stops with a usage error without it, since guessing would
+excuse every sender.  C<MAIL_TO> is where a week that needs looking at is
+mailed, and is also the address the alert is sent as unless C<MAIL_FROM> says
+otherwise.  C<PERL> has to be an absolute path to a perl that has
+C<XML::LibXML>, as cron's C<PATH> usually holds only the system one.
+C<DMARC_DIR> and C<DMARC_ARCHIVE_DIR> are left out of the line because they
+default to C<~/Downloads> and C<~/dmarc-archive>.
+
+F<dmarc-weekly.sh --crontab> prints that line with the path and the perl filled
+in for the machine it runs on, which is more use than an example carrying
+somebody else's values; for that reason no example crontab file is shipped or
+installed.  A job of your own takes the same shape with F<mail-dkim> in place of
+the wrapper: C<DKIM_DOMAINS> and C<DKIM_KEYDIR> say what to sign for, and the
+arguments given to it are passed to sendmail(1) as they are.
+
 =head1 SEE ALSO
 
 L<bin/mail-dkim>, the command line front end; L<bin/dmarc-check-mail.pl>, which

@@ -15,7 +15,11 @@ use strict;
 use warnings;
 
 use FindBin qw($Bin);
-use lib grep { -d } "$Bin/../lib";
+# Where the module is: beside this script in a checkout, and one level down
+# under lib/perl5 when the distribution was installed with INSTALL_BASE - which
+# is how perlbrew, local::lib and cpanm -l put it, and where @INC does not
+# reach unless PERL5LIB is set for every caller, cron included.
+use lib grep { -d } map { "$Bin/../$_" } qw(lib lib/perl5);
 use Mail::Send::DKIM;
 
 my $dkim = Mail::Send::DKIM->new();

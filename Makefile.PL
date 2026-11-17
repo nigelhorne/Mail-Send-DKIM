@@ -1,10 +1,9 @@
 #!/usr/bin/env perl
 #
-# Mail::Send::DKIM - the module is what the distribution is named after,
-# because a distribution whose name is not a module it ships is one PAUSE
-# cannot index sensibly: App::DMARC promised a namespace with no file behind
-# it.  The programmes that use the module travel with it, and are installed by
-# the same command.
+# Mail::Send::DKIM - named after the module it ships, so that the name in the
+# metadata is one a caller can actually C<use>, and so that PAUSE indexes the
+# distribution under the module that does the work.  The programmes that use
+# the module travel with it and are installed by the same command.
 
 use strict;
 use warnings;

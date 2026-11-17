@@ -567,8 +567,13 @@ whenever suits.
 C<--crontab> prints rather than installs: a ready-made line carrying the
 wrapper's absolute path and the C<DMARC_EXPECTED>, C<MAIL_TO> and C<PERL>
 settings the run needs, because a crontab starts with almost no environment.
-F<share/crontab.example> in the distribution is the same thing to read and
-adapt by hand.
+That printed line is the one to paste: no example crontab file is shipped or
+installed, because the path, the perl and the addresses differ on every machine
+and an example carrying somebody else's values cannot be pasted.  An annotated
+one to read is in L<Mail::Send::DKIM/A CRONTAB ENTRY>, which sets out what each
+setting is for.  C<DMARC_DIR> and C<DMARC_ARCHIVE_DIR> are left out of the line
+because they have defaults - C<~/Downloads> and C<~/dmarc-archive> - and only
+need naming when the reports or the archive live somewhere else.
 
 It puts C<$HOME/perl5/perlbrew/perls/perl-5.40.0/bin/perl> first for C<PERL>,
 falling back to C<perl>, because cron's C<PATH> often holds only a system perl
