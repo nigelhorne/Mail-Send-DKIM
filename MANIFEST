@@ -5,6 +5,7 @@ bin/dmarc-report.pl
 bin/dmarc-weekly.sh
 bin/mail-dkim
 Changes
+cpanfile
 lib/Mail/Send/DKIM.pm
 LICENSE
 Makefile.PL

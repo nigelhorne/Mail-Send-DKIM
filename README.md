@@ -112,9 +112,12 @@ the command line programme needs no configuration of its own.
 ## Programmes
 
 The distribution is named after this module and installs four programmes with
-it, each with a page of its own.
+it.  Two of them, `mail-dkim` and `dmarc-report`, have POD of their own, which
+`perldoc mail-dkim` and `perldoc dmarc-report` show once the distribution is
+installed; the other two are shell and command line programmes documented by the
+comments that open them and by their own `--help`.
 
-- ["mail-dkim" in bin](https://metacpan.org/pod/bin#mail-dkim)
+- [mail-dkim](https://github.com/nigelhorne/Mail-Send-DKIM/blob/master/bin/mail-dkim)
 
     The front end to this module: a message on standard input is signed when its
     `From:` domain is one named in `DKIM_DOMAINS`, and handed to sendmail(1) with
@@ -122,7 +125,7 @@ it, each with a page of its own.
     and the mail is signed without the script being changed.  Its page has the
     environment variables, the key layout and the exit status.
 
-- ["dmarc-report.pl" in bin](https://metacpan.org/pod/bin#dmarc-report.pl)
+- [dmarc-report](https://github.com/nigelhorne/Mail-Send-DKIM/blob/master/bin/dmarc-report.pl)
 
     Reads a directory of DMARC aggregate reports and says who sent mail for each
     domain, marking every source that is not an expected one (`DMARC_EXPECTED`),
@@ -130,14 +133,14 @@ it, each with a page of its own.
     quarantined or rejected by policy despite passing.  The exit status is non-zero
     when anything needs looking at.  Its page has the options.
 
-- ["dmarc-weekly.sh" in bin](https://metacpan.org/pod/bin#dmarc-weekly.sh)
+- [dmarc-weekly.sh](https://github.com/nigelhorne/Mail-Send-DKIM/blob/master/bin/dmarc-weekly.sh)
 
     The cron wrapper around it: silent when the week is clean, a mail with the full
     output when it is not, and the reports moved aside to an archive afterwards.
     `--dry-run` rehearses a run and `--crontab` prints the line to paste into a
     crontab; see ["A CRONTAB ENTRY"](#a-crontab-entry) below.
 
-- ["dmarc-check-mail.pl" in bin](https://metacpan.org/pod/bin#dmarc-check-mail.pl)
+- [dmarc-check-mail.pl](https://github.com/nigelhorne/Mail-Send-DKIM/blob/master/bin/dmarc-check-mail.pl)
 
     Sends one message, signed with this module, to a mailbox that can be read, so
     that the `Authentication-Results` header at the far end shows what receivers
