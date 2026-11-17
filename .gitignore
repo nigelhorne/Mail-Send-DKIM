@@ -1,3 +1,4 @@
+!Build/
 .last_cover_stats
 /META.yml
 /META.json
@@ -18,7 +19,6 @@ nytprof.out
 # Module::Build
 _build/
 Build
-!Build/
 Build.bat
 
 # Module::Install
@@ -39,3 +39,9 @@ inc/
 /.carmel/
 # cpanfile.snapshot should generally be ignored for library code, otherwise included
 # cpanfile.snapshot
+
+# Key material, captured messages and logs have no place in the repository
+*.private
+*.key
+*.eml
+*.log
