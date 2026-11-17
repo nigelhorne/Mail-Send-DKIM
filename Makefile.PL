@@ -17,7 +17,9 @@ WriteMakefile(
 	'AUTHOR' => 'Nigel Horne <njh@bandsman.co.uk>',
 	'LICENSE' => 'gpl_2',
 	'MIN_PERL_VERSION' => '5.016',
-	'EXE_FILES' => [
+	CONFIGURE_REQUIRES => {
+		'ExtUtils::MakeMaker' => 6.64,	# Minimum version for TEST_REQUIRES
+	}, 'EXE_FILES' => [
 		'bin/dmarc-report.pl',
 		'bin/dmarc-weekly.sh',
 		'bin/dmarc-check-mail.pl',
