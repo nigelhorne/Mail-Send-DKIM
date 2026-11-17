@@ -389,3 +389,12 @@ would otherwise leave the README with no H1 at all.
 Requires `Test::Most`, `XML::LibXML`, `IO::Compress::{Gzip,Zip}`,
 `IO::Uncompress::{Gunzip,Unzip}`, `Readonly`, `Time::HiRes`, `Mail::DKIM` and
 `Net::DNS`.
+
+## See Also
+
+[Mail::Send::DKIM](https://metacpan.org/pod/Mail%3A%3ASend%3A%3ADKIM), the module that signs the mail these reports describe; it
+is also the name of the distribution this programme is installed from, which is
+why `Makefile.PL` and `Changes` carry that name rather than this one.
+`dmarc-weekly.sh` runs this from cron, ["dmarc-check-mail.pl" in bin](https://metacpan.org/pod/bin#dmarc-check-mail.pl) sends one
+test message so that its signature can be read at the far end, and
+["mail-dkim" in bin](https://metacpan.org/pod/bin#mail-dkim) is the sendmail front end for the module.

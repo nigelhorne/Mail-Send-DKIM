@@ -297,7 +297,12 @@ the command line programme needs no configuration of its own.
 
 =head1 SEE ALSO
 
-L<bin/mail-dkim>, the command line front end, and L<Mail::DKIM::Signer>.
+L<bin/mail-dkim>, the command line front end; L<bin/dmarc-check-mail.pl>, which
+sends one test message through this module so that its signature can be read at
+the far end; and L<bin/dmarc-report.pl> with F<dmarc-weekly.sh>, which
+summarise the DMARC reports that the signed mail produces.  The distribution is
+named after this module and installs all of them, and L<Mail::DKIM::Signer> is
+what does the signing underneath.
 
 =head1 LICENCE
 

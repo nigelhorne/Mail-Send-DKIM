@@ -1,4 +1,4 @@
-Revision history for App-DMARC - Watch DMARC reports, and sign the mail they describe
+Revision history for Mail::Send::DKIM - Sign mail with DKIM, and summarise DMARC reports
 
 0.001	Tue Nov 17 12:40:18 PM EST 2026
 	First release.

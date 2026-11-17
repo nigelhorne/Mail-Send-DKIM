@@ -770,4 +770,13 @@ Requires C<Test::Most>, C<XML::LibXML>, C<IO::Compress::{Gzip,Zip}>,
 C<IO::Uncompress::{Gunzip,Unzip}>, C<Readonly>, C<Time::HiRes>, C<Mail::DKIM> and
 C<Net::DNS>.
 
+=head1 SEE ALSO
+
+L<Mail::Send::DKIM>, the module that signs the mail these reports describe; it
+is also the name of the distribution this programme is installed from, which is
+why F<Makefile.PL> and F<Changes> carry that name rather than this one.
+F<dmarc-weekly.sh> runs this from cron, L<bin/dmarc-check-mail.pl> sends one
+test message so that its signature can be read at the far end, and
+L<bin/mail-dkim> is the sendmail front end for the module.
+
 =cut

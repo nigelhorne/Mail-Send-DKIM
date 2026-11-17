@@ -1,8 +1,10 @@
 #!/usr/bin/env perl
 #
-# App::DMARC - the programmes are the product here, so there is no module to
-# install alongside them; the distribution exists so that they can be fetched,
-# tested and put on a PATH with one command.
+# Mail::Send::DKIM - the module is what the distribution is named after,
+# because a distribution whose name is not a module it ships is one PAUSE
+# cannot index sensibly: App::DMARC promised a namespace with no file behind
+# it.  The programmes that use the module travel with it, and are installed by
+# the same command.
 
 use strict;
 use warnings;
@@ -10,9 +12,9 @@ use warnings;
 use ExtUtils::MakeMaker;
 
 WriteMakefile(
-	'NAME' => 'App::DMARC',
-	'VERSION' => '0.001',
-	'ABSTRACT' => 'Watch DMARC reports, and sign the mail they describe',
+	'NAME' => 'Mail::Send::DKIM',
+	'VERSION_FROM' => 'lib/Mail/Send/DKIM.pm',
+	'ABSTRACT' => 'Sign mail with DKIM, and summarise DMARC reports',
 	'AUTHOR' => 'Nigel Horne <njh@bandsman.co.uk>',
 	'LICENSE' => 'gpl_2',
 	'MIN_PERL_VERSION' => '5.016',
@@ -40,8 +42,8 @@ WriteMakefile(
 	},
 	'META_MERGE' => {
 		'resources' => {
-			'repository' => 'https://github.com/nigelhorne/dmarc-report',
-			'bugtracker' => 'https://github.com/nigelhorne/dmarc-report/issues',
+			'repository' => 'https://github.com/nigelhorne/mail-send-dkim',
+			'bugtracker' => 'https://github.com/nigelhorne/mail-send-dkim/issues',
 		},
 	},
 );
