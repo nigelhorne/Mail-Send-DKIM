@@ -779,9 +779,11 @@ C<Net::DNS>.
 
 L<Mail::Send::DKIM>, the module that signs the mail these reports describe; it
 is also the name of the distribution this programme is installed from, which is
-why F<Makefile.PL> and F<Changes> carry that name rather than this one.
-F<dmarc-weekly.sh> runs this from cron, L<bin/dmarc-check-mail.pl> sends one
-test message so that its signature can be read at the far end, and
-L<bin/mail-dkim> is the sendmail front end for the module.
+why F<Makefile.PL> and F<Changes> carry that name rather than this one, and why
+the project's README.md is that module's page and not this one.
+C<mail-dkim> is the sendmail front end for the module and has a page of its own
+(C<perldoc mail-dkim>); F<dmarc-weekly.sh> runs this programme from cron, and
+F<dmarc-check-mail.pl> sends one test message so that its signature can be read
+at the far end.
 
 =cut
