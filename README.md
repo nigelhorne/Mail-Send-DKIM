@@ -109,6 +109,45 @@ always fall back to sending the message as it is.
 **SENDMAIL** are read by **new** when the corresponding option is not given, so
 the command line programme needs no configuration of its own.
 
+## Programmes
+
+The distribution is named after this module and installs four programmes with
+it, each with a page of its own.
+
+- ["mail-dkim" in bin](https://metacpan.org/pod/bin#mail-dkim)
+
+    The front end to this module: a message on standard input is signed when its
+    `From:` domain is one named in `DKIM_DOMAINS`, and handed to sendmail(1) with
+    the arguments it was given.  Put it where a script or a crontab calls sendmail
+    and the mail is signed without the script being changed.  Its page has the
+    environment variables, the key layout and the exit status.
+
+- ["dmarc-report.pl" in bin](https://metacpan.org/pod/bin#dmarc-report.pl)
+
+    Reads a directory of DMARC aggregate reports and says who sent mail for each
+    domain, marking every source that is not an expected one (`DMARC_EXPECTED`),
+    every expected one whose mail did not authenticate, and every message that was
+    quarantined or rejected by policy despite passing.  The exit status is non-zero
+    when anything needs looking at.  Its page has the options.
+
+- ["dmarc-weekly.sh" in bin](https://metacpan.org/pod/bin#dmarc-weekly.sh)
+
+    The cron wrapper around it: silent when the week is clean, a mail with the full
+    output when it is not, and the reports moved aside to an archive afterwards.
+    `--dry-run` rehearses a run and `--crontab` prints the line to paste into a
+    crontab; see ["A CRONTAB ENTRY"](#a-crontab-entry) below.
+
+- ["dmarc-check-mail.pl" in bin](https://metacpan.org/pod/bin#dmarc-check-mail.pl)
+
+    Sends one message, signed with this module, to a mailbox that can be read, so
+    that the `Authentication-Results` header at the far end shows what receivers
+    make of this host's mail before the DMARC policy is tightened.  `--plain`
+    sends the same message unsigned, which is what a cron job without the module
+    looks like.
+
+The three DMARC programmes are the reason the module exists: they report on the
+mail it signs, and the weekly one sends its own report through it.
+
 ## A Crontab Entry
 
 A job that sends mail from cron is where an unsigned message is least likely to
@@ -144,12 +183,8 @@ arguments given to it are passed to sendmail(1) as they are.
 
 ## See Also
 
-["mail-dkim" in bin](https://metacpan.org/pod/bin#mail-dkim), the command line front end; ["dmarc-check-mail.pl" in bin](https://metacpan.org/pod/bin#dmarc-check-mail.pl), which
-sends one test message through this module so that its signature can be read at
-the far end; and ["dmarc-report.pl" in bin](https://metacpan.org/pod/bin#dmarc-report.pl) with `dmarc-weekly.sh`, which
-summarise the DMARC reports that the signed mail produces.  The distribution is
-named after this module and installs all of them, and [Mail::DKIM::Signer](https://metacpan.org/pod/Mail%3A%3ADKIM%3A%3ASigner) is
-what does the signing underneath.
+[Mail::DKIM::Signer](https://metacpan.org/pod/Mail%3A%3ADKIM%3A%3ASigner), which does the signing underneath, and ["PROGRAMMES"](#programmes)
+above for the programmes this distribution installs beside the module.
 
 ## Licence
 
