@@ -1,0 +1,791 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>File: lib/Mail/Send/DKIM.pm</title>
+<style>
+
+/* --------------------------------------------------
+   CSS Variables (Light Mode Default)
+-------------------------------------------------- */
+
+:root {
+    --bg: #ffffff;
+    --text: #000000;
+    --table-header: #333;
+    --table-header-text: #ffffff;
+
+    --survived-1: #f8d7da;
+    --survived-2: #f5b7b1;
+    --survived-3: #ec7063;
+
+    --killed: #d4edda;
+    --border: #cccccc;
+}
+
+/* --------------------------------------------------
+   Dark Mode Overrides
+-------------------------------------------------- */
+
+html[data-theme='dark'] {
+    --bg: #1e1e1e;
+    --text: #dddddd;
+    --table-header: #222;
+    --table-header-text: #ffffff;
+
+    --survived-1: #5c2b2e;
+    --survived-2: #7b2c2f;
+    --survived-3: #a93226;
+
+    --killed: #1e4620;
+    --border: #555;
+}
+
+/* --------------------------------------------------
+   Global Styles
+-------------------------------------------------- */
+
+body {
+	font-family: sans-serif;
+	background: var(--bg);
+	color: var(--text);
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th {
+    background: var(--table-header);
+    color: var(--table-header-text);
+}
+
+.survived-1 { background-color: var(--survived-1); }
+.survived-2 { background-color: var(--survived-2); }
+.survived-3 { background-color: var(--survived-3); }
+
+.killed { background-color: var(--killed); }
+
+.legend {
+    border: 1px solid #ccc;
+    background: #fafafa;
+    padding: 10px;
+    margin: 15px 0;
+    font-size: 0.9em;
+}
+
+.legend pre {
+    background: #f4f4f4;
+    padding: 5px;
+}
+
+.legend-box {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin: 0 6px 0 20px;
+    vertical-align: middle;
+    border: 1px solid var(--border);
+}
+
+/* White box for non-mutated lines */
+.legend-box.none {
+	background-color: var(--bg);
+}
+
+/* --------------------------------------------------
+   Suggested Test Box Styling
+   Theme-aware and readable in light & dark modes
+-------------------------------------------------- */
+
+.suggested-test {
+    margin-top: 6px;
+    margin-bottom: 12px;
+
+    /* Use theme variables instead of hardcoded colors */
+    background: var(--bg);
+    color: var(--text);
+
+    padding: 8px;
+    border-radius: 4px;
+
+    /* Subtle border for visual separation */
+    border: 1px solid var(--border);
+}
+
+/* Label styling */
+.suggest-label {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+/* Ensure the test code block inherits readable colors */
+.suggested-test pre {
+    background: transparent;   /* Prevent nested dark blocks */
+    color: inherit;            /* Match theme text color */
+    margin: 0;
+    font-family: monospace;
+}
+
+pre { line-height: 1.4; }
+
+pre > details {
+    margin: 0.2em 0;
+}
+
+pre > details:first-child {
+    margin-top: 0;
+}
+
+pre > details:last-child {
+    margin-bottom: 0;
+}
+
+pre details,
+pre summary,
+pre ul,
+pre li {
+    white-space: normal;
+    margin: 0;
+    padding: 0;
+    line-height: 1.2;
+}
+
+.nav { margin-bottom: 1em; }
+
+.toggle {
+    float: right;
+    cursor: pointer;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+}
+
+/* Tooltip container */
+.tooltip {
+	position: relative;
+	cursor: help;
+}
+
+/* Tooltip bubble */
+.tooltip:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 0;
+    top: 100%;
+    background: var(--table-header);
+    color: var(--table-header-text);
+    padding: 6px 10px;
+    white-space: normal;
+    max-width: 300px;
+    min-width: 30ch;
+    font-size: 12px;
+    border-radius: 6px;
+    z-index: 1000;
+    margin-left: 10ch;   /* move tooltip ~10 characters to the right */
+}
+
+.mutant-details {
+	margin-left: 2em;
+	font-size: 0.9em;
+}
+
+/* Indent the list of mutations that displays when expanding by 8 characters */
+pre details.mutant-details ul {
+	padding-left: 8ch;
+	margin: 0.2em 0;
+}
+
+.mutant-details summary {
+	cursor: pointer;
+	font-weight: bold;
+}
+
+.lcsaj-dot {
+    color: #5555ff;
+    font-size: 10px;
+    margin-right: 3px;
+}
+
+.lcsaj-dot-uncovered {
+    color: #cc4444;
+    font-size: 10px;
+    margin-right: 3px;
+}
+
+.lcsaj-tip {
+	position: relative;
+	display: inline-block;
+}
+
+.lcsaj-tip .lcsaj-tip-text {
+	visibility: hidden;
+	background-color: #333;
+	color: #fff;
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-size: 11px;
+	white-space: nowrap;
+	position: fixed;
+	z-index: 9999;
+	pointer-events: none;
+}
+
+.lcsaj-tip:hover .lcsaj-tip-text {
+	visibility: visible;
+}
+
+.cpd-dot {
+    color: #cc8800;
+    font-size: 10px;
+    margin-right: 3px;
+    cursor: help;
+    text-decoration: none;
+}
+a.cpd-dot { cursor: pointer; }
+a.cpd-dot:hover { color: #ff8800; }
+
+.cpd-tip {
+    position: relative;
+    display: inline-block;
+}
+
+.cpd-tip .cpd-tip-text {
+    visibility: hidden;
+    background-color: #333;
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+}
+
+.cpd-tip:hover .cpd-tip-text {
+    visibility: visible;
+}
+
+/* CPD drill-down page styles */
+.dup-line { background-color: #fff3cd; display: block; }
+.dup-line:hover { background-color: #ffe082; }
+.intra-dot { color: #9944cc; margin-right: 4px; cursor: help; text-decoration: none; }
+a.intra-dot { cursor: pointer; }
+a.intra-dot:hover { color: #7700bb; }
+.cpd-legend {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 4px;
+    display: inline-block;
+    padding: 6px 10px;
+    margin-bottom: 1em;
+    font-size: 0.9em;
+}
+
+</style>
+</head>
+<body>
+<button class="toggle" onclick="toggleTheme()">🌙 Toggle Theme</button>
+<h1>lib/Mail/Send/DKIM.pm</h1>
+<div class="nav"><a href="../../../../index.html">Index</a>
+</div><div class='summary'>
+<strong>Structural Coverage (Approximate)</strong><p>
+TER1 (Statement): 91.49%<br>
+TER2 (Branch): 82.35%<br>
+TER3 (LCSAJ): 100.0% (3/3)<br>
+Approximate LCSAJ segments: 35<br>
+</div>
+
+    <div class="legend">
+        <h3>LCSAJ Legend</h3>
+
+        <p>
+        <span class="lcsaj-dot">●</span>
+        <b>Covered</b> — this LCSAJ path was executed during testing.
+        </p>
+
+        <p>
+        <span class="lcsaj-dot-uncovered">●</span>
+        <b>Not covered</b> — this LCSAJ path was never executed. These are the paths to focus on.
+        </p>
+
+        <p>
+        Multiple dots on a line indicate that multiple control-flow paths begin at that line.
+        Hovering over any dot shows:
+        </p>
+
+        <pre>
+        start → end → jump
+        </pre>
+
+        <ul>
+        <li><b>start</b> – first line of the linear sequence</li>
+        <li><b>end</b> – last line before control flow changes</li>
+        <li><b>jump</b> – line execution jumps to next</li>
+        </ul>
+
+        <p>
+        Uncovered paths show <b>[NOT COVERED]</b> in the tooltip.
+	</p>
+    </div>
+
+		<div class="legend">
+			<h3>Mutant Testing Legend</h3>
+			<span class="legend-box survived-1"></span> Survived (tests missed this)
+			<span class="legend-box killed"></span> Killed (tests detected this)
+			<span class="legend-box none"></span> No mutation
+		</div>
+	<pre>
+<span class="">    1: package Mail::Send::DKIM;
+</span><span class="">    2: 
+</span><span class="">    3: # The signing half of bin/mail-dkim: given an object configured with the
+</span><span class="">    4: # domains this host signs for, a message either comes back signed or comes back
+</span><span class="">    5: # as undef and the caller sends it as it is.  Nothing here dies on a signing
+</span><span class="">    6: # problem, because a missing key must never stop mail being delivered.
+</span><span class="">    7: 
+</span><span class="">    8: use strict;
+</span><span class="">    9: use warnings;
+</span><span class="">   10: 
+</span><span class="">   11: use Mail::DKIM::Signer;
+</span><span class="">   12: use Params::Get;
+</span><span class="">   13: use Object::Configure;
+</span><span class="">   14: 
+</span><span class="">   15: use version; our $VERSION = version-&gt;declare(&#39;0.001.0&#39;);
+</span><span class="">   16: 
+</span><span class="">   17: =head1 NAME
+</span><span class="">   18: 
+</span><span class="">   19: Mail::Send::DKIM - sign a message with DKIM and hand it to sendmail
+</span><span class="">   20: 
+</span><span class="">   21: =head1 VERSION
+</span><span class="">   22: 
+</span><span class="">   23: 0.001.0
+</span><span class="">   24: 
+</span><span class="">   25: =head1 SYNOPSIS
+</span><span class="">   26: 
+</span><span class="">   27: 	use Mail::Send::DKIM;
+</span><span class="">   28: 
+</span><span class="">   29: 	my $dkim = Mail::Send::DKIM-&gt;new(
+</span><span class="">   30: 		domains =&gt; [&#39;example.org&#39;],
+</span><span class="">   31: 		keydir =&gt; &quot;$ENV{HOME}/dkim&quot;,
+</span><span class="">   32: 	);
+</span><span class="">   33: 
+</span><span class="">   34: 	my $signed = $dkim-&gt;sign($message);
+</span><span class="">   35: 	$message = $signed if(defined($signed));
+</span><span class="">   36: 
+</span><span class="">   37: 	exit($dkim-&gt;send($message, &#39;-t&#39;, &#39;-f&#39;, &#39;alerts@example.org&#39;));
+</span><span class="">   38: 
+</span><span class="">   39: =head1 DESCRIPTION
+</span><span class="">   40: 
+</span><span class="">   41: Signs a message with DKIM when its C&lt;From:&gt; domain is one this host signs for,
+</span><span class="">   42: and hands it to sendmail with whatever arguments sendmail should have.  The
+</span><span class="">   43: signed form is C&lt;rsa-sha256&gt; with C&lt;relaxed&gt; canonicalization, which is the
+</span><span class="">   44: shape receiving sites expect.
+</span><span class="">   45: 
+</span><span class="">   46: The signature covers the message in the form DKIM defines, where every line
+</span><span class="">   47: ends CRLF.  What is handed to sendmail is the local form instead: LF line
+</span><span class="">   48: endings, and no carriage return anywhere, whatever arrived.  A CR would be data
+</span><span class="">   49: to the MTA that keeps the message - Postfix and Exim both write the CRLF of
+</span><span class="">   50: SMTP themselves - so a message that had travelled with CRLF in it would reach
+</span><span class="">   51: the receiver with the CRs doubled and fail the signature it had just been given.
+</span><span class="">   52: 
+</span><span class="">   53: Nothing here dies because a key is missing: signing either produces a signed
+</span><span class="">   54: message or produces nothing and says why on standard error, so a caller can
+</span><span class="">   55: always fall back to sending the message as it is.
+</span><span class="">   56: 
+</span><span class="">   57: =head1 ENVIRONMENT
+</span><span class="">   58: 
+</span><span class="">   59: B&lt;DKIM_DOMAINS&gt;, B&lt;DKIM_KEYDIR&gt;, B&lt;DKIM_SELECTOR&gt;, B&lt;DKIM_KEYFILE&gt; and
+</span><span class="">   60: B&lt;SENDMAIL&gt; are read by B&lt;new&gt; when the corresponding option is not given, so
+</span><span class="">   61: the command line programs needs no configuration of its own.
+</span><span class="">   62: 
+</span><span class="">   63: =head1 PROGRAMS
+</span><span class="">   64: 
+</span><span class="">   65: The distribution is named after this module and installs four programs with
+</span><span class="">   66: it, each with a page of its own: C&lt;perldoc bin/mail-dkim&gt;,
+</span><span class="">   67: C&lt;perldoc bin/dmarc-report.pl&gt;, C&lt;perldoc bin/dmarc-check-mail.pl&gt; and
+</span><span class="">   68: C&lt;perldoc bin/dmarc-weekly.sh&gt; in a checkout, and the same pages as manual
+</span><span class="">   69: pages once installed.
+</span><span class="">   70: 
+</span><span class="">   71: =over 4
+</span><span class="">   72: 
+</span><span class="">   73: =item L&lt;mail-dkim|https://github.com/nigelhorne/Mail-Send-DKIM/blob/master/bin/mail-dkim&gt;
+</span><span class="">   74: 
+</span><span class="">   75: The front end to this module: a message on standard input is signed when its
+</span><span class="">   76: C&lt;From:&gt; domain is one named in C&lt;DKIM_DOMAINS&gt;, and handed to sendmail(1) with
+</span><span class="">   77: the arguments it was given.  Put it where a script or a crontab calls sendmail
+</span><span class="">   78: and the mail is signed without the script being changed.  Its page has the
+</span><span class="">   79: environment variables, the key layout and the exit status.
+</span><span class="">   80: 
+</span><span class="">   81: =item L&lt;dmarc-report|https://github.com/nigelhorne/Mail-Send-DKIM/blob/master/bin/dmarc-report.pl&gt;
+</span><span class="">   82: 
+</span><span class="">   83: Reads a directory of DMARC aggregate reports and says who sent mail for each
+</span><span class="">   84: domain, marking every source that is not an expected one (C&lt;DMARC_EXPECTED&gt;),
+</span><span class="">   85: every expected one whose mail did not authenticate, and every message that was
+</span><span class="">   86: quarantined or rejected by policy despite passing.  The exit status is non-zero
+</span><span class="">   87: when anything needs looking at.  Its page has the options.
+</span><span class="">   88: 
+</span><span class="">   89: =item L&lt;dmarc-weekly.sh|https://github.com/nigelhorne/Mail-Send-DKIM/blob/master/bin/dmarc-weekly.sh&gt;
+</span><span class="">   90: 
+</span><span class="">   91: The cron wrapper around it: silent when the week is clean, a mail with the full
+</span><span class="">   92: output when it is not, and the reports moved aside to an archive afterwards.
+</span><span class="">   93: C&lt;DRY_RUN=1&gt; rehearses a run and C&lt;--crontab&gt; prints the line to paste into a
+</span><span class="">   94: crontab; see L&lt;/A CRONTAB ENTRY&gt; below.
+</span><span class="">   95: 
+</span><span class="">   96: =item L&lt;dmarc-check-mail.pl|https://github.com/nigelhorne/Mail-Send-DKIM/blob/master/bin/dmarc-check-mail.pl&gt;
+</span><span class="">   97: 
+</span><span class="">   98: Sends one message, signed with this module, to a mailbox that can be read, so
+</span><span class="">   99: that the C&lt;Authentication-Results&gt; header at the far end shows what receivers
+</span><span class="">  100: make of this host&#39;s mail before the DMARC policy is tightened.  C&lt;--plain&gt;
+</span><span class="">  101: sends the same message unsigned, which is what a cron job without the module
+</span><span class="">  102: looks like.
+</span><span class="">  103: 
+</span><span class="">  104: =back
+</span><span class="">  105: 
+</span><span class="">  106: The three DMARC programs are the reason the module exists: they report on the
+</span><span class="">  107: mail it signs, and the weekly one sends its own report through it.
+</span><span class="">  108: 
+</span><span class="">  109: =head1 METHODS
+</span><span class="">  110: 
+</span><span class="">  111: =head2 B&lt;new&gt; %options
+</span><span class="">  112: 
+</span><span class="">  113: =over 4
+</span><span class="">  114: 
+</span><span class="">  115: =item C&lt;domains&gt;
+</span><span class="">  116: 
+</span><span class="">  117: The domains to sign for, either an array reference or a string of them
+</span><span class="">  118: separated by commas or spaces.  Defaults to C&lt;$ENV{DKIM_DOMAINS}&gt;.  A message
+</span><span class="">  119: from any other domain is left alone.
+</span><span class="">  120: 
+</span><span class="">  121: =item C&lt;keydir&gt;
+</span><span class="">  122: 
+</span><span class="">  123: Where the private keys are.  Defaults to C&lt;$ENV{DKIM_KEYDIR}&gt;, or F&lt;~/dkim&gt;.
+</span><span class="">  124: 
+</span><span class="">  125: =item C&lt;selector&gt;
+</span><span class="">  126: 
+</span><span class="">  127: The selector the key is published under, which names the key file
+</span><span class="">  128: F&lt;&lt; &lt;keydir&gt;/&lt;selector&gt;.private &gt;&gt;.  Defaults to C&lt;$ENV{DKIM_SELECTOR}&gt;; with
+</span><span class="">  129: neither set, the key file&#39;s own name is the selector when B&lt;keyfile&gt; is given,
+</span><span class="">  130: and otherwise the only F&lt;*.private&gt; file in B&lt;keydir&gt; is used and its name is
+</span><span class="">  131: the selector.
+</span><span class="">  132: 
+</span><span class="">  133: =item C&lt;keyfile&gt;
+</span><span class="">  134: 
+</span><span class="">  135: The private key to sign with, when it does not live at
+</span><span class="">  136: F&lt;&lt; &lt;keydir&gt;/&lt;selector&gt;.private &gt;&gt; - a tester given one key to try, for
+</span><span class="">  137: instance.  Defaults to C&lt;$ENV{DKIM_KEYFILE}&gt;.  It is used as it stands, and
+</span><span class="">  138: the selector comes from its name unless one is given.
+</span><span class="">  139: 
+</span><span class="">  140: =item C&lt;sendmail&gt;
+</span><span class="">  141: 
+</span><span class="">  142: The program B&lt;send&gt; hands the message to.  Defaults to C&lt;$ENV{SENDMAIL}&gt;, or
+</span><span class="">  143: F&lt;/usr/sbin/sendmail&gt;.
+</span><span class="">  144: 
+</span><span class="">  145: =back
+</span><span class="">  146: 
+</span><span class="">  147: =cut
+</span><span class="">  148: 
+</span><span class="">  149: sub new
+</span><span class="">  150: {
+</span><span class="">  151: 	my $class = shift;
+</span><span class="">  152: 
+</span><span class="">  153: 	# Handle hash or hashref arguments
+</span><span class="">  154: 	my $params = Params::Get::get_params(undef, \@_) // {};
+</span><span class="">  155: 
+</span><span class="">  156: 	$params = Object::Configure::configure($class, $params);
+</span><span class="">  157: 
+</span><span class="">  158: 	my $home = $params-&gt;{home} || $ENV{&#39;HOME&#39;} || (getpwuid($&lt;))[7] || &#39;.&#39;;
+</span><span class="">  159: 
+</span><span class="">  160: 	my $domains = $params-&gt;{&#39;domains&#39;} // $ENV{&#39;DKIM_DOMAINS&#39;} // &#39;&#39;;
+</span><span class="">  161: 	my @domains = ref($domains) eq &#39;ARRAY&#39; ? @$domains : split(/[\s,]+/, $domains);
+</span><span class="">  162: 
+</span><span class="">  163: 	my $self = {
+</span><span class="">  164: 		&#39;domains&#39; =&gt; { map { lc($_) =&gt; 1 } grep { length } @domains },
+</span><span class="">  165: 		&#39;keydir&#39; =&gt; $params-&gt;{&#39;keydir&#39;} // $ENV{&#39;DKIM_KEYDIR&#39;} // &quot;$home/dkim&quot;,
+</span><span class="">  166: 		&#39;selector&#39; =&gt; $params-&gt;{&#39;selector&#39;} // $ENV{&#39;DKIM_SELECTOR&#39;},
+</span><span class="">  167: 		&#39;keyfile&#39; =&gt; $params-&gt;{&#39;keyfile&#39;} // $ENV{&#39;DKIM_KEYFILE&#39;},
+</span><span class="">  168: 		&#39;sendmail&#39; =&gt; $params-&gt;{&#39;sendmail&#39;} // $ENV{&#39;SENDMAIL&#39;} // &#39;/usr/sbin/sendmail&#39;,
+</span><span class="">  169: 	};
+</span><span class="">  170: 
+</span><span class="killed tooltip" data-tooltip="Mutations here were killed. Tests are effectively covering this logic.">  171: 	return bless($self, $class);
+</span><p> <b> Mutants (Total: 2, Killed: 2, Survived: 0)</b><p><span class="">  172: }
+</span><span class="">  173: 
+</span><span class="">  174: =head2 B&lt;sign&gt; $message
+</span><span class="">  175: 
+</span><span class="">  176: Returns the message with a C&lt;DKIM-Signature&gt; header added, or C&lt;undef&gt; when
+</span><span class="">  177: there is nothing to do or nothing that can be done: the domain is not one of
+</span><span class="">  178: B&lt;domains&gt;, there is no C&lt;From:&gt; header, no key can be found or read, or the
+</span><span class="">  179: signer failed.  The reasons are warnings on standard error; the message itself
+</span><span class="">  180: is never altered in the undef case, so the caller sends it unchanged.
+</span><span class="">  181: Carriage returns are folded to LF on the way, so what comes back is in the
+</span><span class="">  182: local form.
+</span><span class="">  183: 
+</span><span class="">  184: =cut
+</span><span class="">  185: 
+</span><span class="">  186: sub sign
+</span><span class="">  187: {
+</span><span class=""><span class="lcsaj-tip"><span class="lcsaj-dot">●</span><span class="lcsaj-tip-text">188 → 203 → 206</span></span>  188: 	my $self = shift;
+</span><span class="">  189: 
+</span><span class="">  190: 	my $params = Params::Get::get_params(&#39;message&#39;, \@_);
+</span><span class="">  191: 	my $message = $params-&gt;{message};
+</span><span class="">  192: 
+</span><span class="">  193: 	my $domain = from_domain($message);
+</span><span class="">  194: 	return unless(defined($domain));
+</span><span class="">  195: 	return unless($self-&gt;{&#39;domains&#39;}-&gt;{$domain});
+</span><span class="">  196: 
+</span><span class="">  197: 	my $selector = $self-&gt;selector;
+</span><span class="">  198: 	return unless(defined($selector));
+</span><span class="">  199: 
+</span><span class="">  200: 	# A key file named outright needs neither the directory nor the naming
+</span><span class="">  201: 	# convention; otherwise the key is &lt;keydir&gt;/&lt;selector&gt;.private.
+</span><span class="">  202: 	my $keyfile = $self-&gt;{&#39;keyfile&#39;} // $self-&gt;{&#39;keydir&#39;} . &quot;/$selector.private&quot;;
+</span><span class="killed tooltip" data-tooltip="Mutations here were killed. Tests are effectively covering this logic.">  203: 	unless(-r $keyfile) {
+</span><p> <b> Mutants (Total: 1, Killed: 1, Survived: 0)</b><p><span class="">  204: 		warn &quot;Mail::Send::DKIM: no readable key at $keyfile; sending $domain unsigned&quot;;
+</span><span class="">  205: 		return;
+</span><span class="">  206: 	}
+</span><span class="">  207: 
+</span><span class="">  208: 	# DKIM hashes the message in the form it travels in, where every line
+</span><span class="">  209: 	# ends CRLF, so the signature is made over a CRLF copy of what arrived.
+</span><span class="">  210: 	(my $wire = _local($message)) =~ s/\n/\r\n/g;
+</span><span class="">  211: 
+</span><span class="">  212: 	my $signed;
+</span><span class="">  213: 	eval {
+</span><span class="">  214: 		my $signer = Mail::DKIM::Signer-&gt;new(
+</span><span class="">  215: 			Algorithm =&gt; &#39;rsa-sha256&#39;,
+</span><span class="">  216: 			Method =&gt; &#39;relaxed&#39;,
+</span><span class="">  217: 			Domain =&gt; $domain,
+</span><span class="">  218: 			Selector =&gt; $selector,
+</span><span class="">  219: 			KeyFile =&gt; $keyfile,
+</span><span class="">  220: 		);
+</span><span class="">  221: 		$signer-&gt;PRINT($wire);
+</span><span class="">  222: 		$signer-&gt;CLOSE;
+</span><span class="">  223: 		$signed = $signer-&gt;signature-&gt;as_string . &quot;\n&quot; . _local($message);
+</span><span class="">  224: 		1;
+</span><span class="">  225: 	} or do {
+</span><span class="">  226: 		my $error = $@ || &#39;unknown error&#39;;
+</span><span class="">  227: 		chomp($error);
+</span><span class="">  228: 		warn &quot;Mail::Send::DKIM: cannot sign for $domain ($error); sending unsigned&quot;;
+</span><span class="">  229: 		return;
+</span><span class="">  230: 	};
+</span><span class="">  231: 
+</span><span class="killed tooltip" data-tooltip="Mutations here were killed. Tests are effectively covering this logic.">  232: 	return $signed;
+</span><p> <b> Mutants (Total: 2, Killed: 2, Survived: 0)</b><p><span class="">  233: }
+</span><span class="">  234: 
+</span><span class="">  235: =head2 B&lt;send&gt; $message, @arguments
+</span><span class="">  236: 
+</span><span class="">  237: Pipes the message to B&lt;sendmail&gt; with the arguments given - C&lt;-t&gt;, C&lt;-f&gt; and
+</span><span class="">  238: the rest are sendmail&#39;s own - and returns C&lt;0&gt; when sendmail accepted the
+</span><span class="">  239: message, sendmail&#39;s exit status when it did not, and C&lt;1&gt; when sendmail cannot
+</span><span class="">  240: be run at all.  The message is normalised to LF first, so nothing that arrived
+</span><span class="">  241: with CRLF - signed or passed through unsigned - carries a carriage return to
+</span><span class="">  242: the MTA.
+</span><span class="">  243: 
+</span><span class="">  244: =cut
+</span><span class="">  245: 
+</span><span class="">  246: sub send
+</span><span class="">  247: {
+</span><span class="">  248: 	my ($self, $message, @args) = @_;
+</span><span class="">  249: 
+</span><span class="">  250: 	open(my $sendmail, &#39;|-&#39;, $self-&gt;{&#39;sendmail&#39;}, @args) or do {
+</span><span class="">  251: 		warn &quot;Mail::Send::DKIM: cannot run $self-&gt;{&#39;sendmail&#39;}: $!&quot;;
+</span><span class="killed tooltip" data-tooltip="Mutations here were killed. Tests are effectively covering this logic.">  252: 		return 1;
+</span><p> <b> Mutants (Total: 2, Killed: 2, Survived: 0)</b><p><span class="">  253: 	};
+</span><span class="">  254: 	print $sendmail _local($message);
+</span><span class="">  255: 
+</span><span class="killed tooltip" data-tooltip="Mutations here were killed. Tests are effectively covering this logic.">  256: 	return 0 if(close($sendmail));
+</span><p> <b> Mutants (Total: 2, Killed: 2, Survived: 0)</b><p><span class="">  257: 
+</span><span class="">  258: 	my $status = $? &gt;&gt; 8;
+</span><span class="">  259: 
+</span><span class="killed tooltip" data-tooltip="Mutations here were killed. Tests are effectively covering this logic.">  260: 	return $status || 1;
+</span><p> <b> Mutants (Total: 2, Killed: 2, Survived: 0)</b><p><span class="">  261: }
+</span><span class="">  262: 
+</span><span class="">  263: #
+</span><span class="">  264: # What is handed to sendmail is the local form of the message: LF line endings
+</span><span class="">  265: # and no carriage return anywhere, whatever arrived.  A CR is data to the MTA
+</span><span class="">  266: # that keeps the message - Postfix&#39;s sendmail_fix_line_endings and Exim both
+</span><span class="">  267: # write the CRLF of SMTP themselves - so one that survived would reach the
+</span><span class="">  268: # receiver doubled, and the message would fail the signature it was just given.
+</span><span class="">  269: sub _local
+</span><span class="">  270: {
+</span><span class="">  271: 	my $message = shift;
+</span><span class="">  272: 
+</span><span class="">  273: 	$message =~ s/\r\n/\n/g;
+</span><span class="">  274: 	$message =~ s/\r//g;
+</span><span class="">  275: 
+</span><span class="killed tooltip" data-tooltip="Mutations here were killed. Tests are effectively covering this logic.">  276: 	return $message;
+</span><p> <b> Mutants (Total: 2, Killed: 2, Survived: 0)</b><p><span class="">  277: }
+</span><span class="">  278: 
+</span><span class="">  279: =head2 B&lt;from_domain&gt; $message
+</span><span class="">  280: 
+</span><span class="">  281: The domain of the address in the first C&lt;From:&gt; header, in lower case, or
+</span><span class="">  282: C&lt;undef&gt; when there is no such header.  Folded headers and display names are
+</span><span class="">  283: understood.
+</span><span class="">  284: 
+</span><span class="">  285: =cut
+</span><span class="">  286: 
+</span><span class="">  287: #
+</span><span class="">  288: # The domain an address is at, from the first From: header.  A header field can
+</span><span class="">  289: # be folded over several lines, so the continuation lines are joined first, and
+</span><span class="">  290: # a display name is dropped in favour of the address in angle brackets.
+</span><span class="">  291: sub from_domain
+</span><span class="">  292: {
+</span><span class="">  293: 	my $message = shift;
+</span><span class="">  294: 
+</span><span class="">  295: 	my ($head) = $message =~ /\A(.*?)\r?\n\r?\n/s;
+</span><span class="">  296: 	$head = $message unless(defined($head));
+</span><span class="">  297: 	$head =~ s/\r?\n[ \t]+/ /g;
+</span><span class="">  298: 	return unless($head =~ /^From:[ \t]*(.*?)\s*$/mi);
+</span><span class="">  299: 
+</span><span class="">  300: 	my $value = $1;
+</span><span class="">  301: 	my ($address) = $value =~ /&lt;([^&gt;]*)&gt;/;
+</span><span class="">  302: 	$address = $value unless(defined($address));
+</span><span class="">  303: 
+</span><span class="">  304: 	# An address can be followed by a comment, so the domain is the last
+</span><span class="">  305: 	# thing that looks like one rather than the end of the string.
+</span><span class="">  306: 	my @domains = $address =~ /\@([A-Za-z0-9.-]+)/g;
+</span><span class="">  307: 	return unless(@domains);
+</span><span class="">  308: 
+</span><span class="killed tooltip" data-tooltip="Mutations here were killed. Tests are effectively covering this logic.">  309: 	return lc($domains[-1]);
+</span><p> <b> Mutants (Total: 2, Killed: 2, Survived: 0)</b><p><span class="">  310: }
+</span><span class="">  311: 
+</span><span class="">  312: =head2 B&lt;selector&gt;
+</span><span class="">  313: 
+</span><span class="">  314: The selector the message will be signed under: the one given to B&lt;new&gt; or read
+</span><span class="">  315: from C&lt;DKIM_SELECTOR&gt;, otherwise the name of the B&lt;keyfile&gt; when one is given,
+</span><span class="">  316: otherwise the name of the only F&lt;*.private&gt; file in B&lt;keydir&gt;.  C&lt;undef&gt; when it
+</span><span class="">  317: cannot be decided - no key, or several keys and no name - and the reason is a
+</span><span class="">  318: warning on standard error.  B&lt;sign&gt; asks this before doing anything else.
+</span><span class="">  319: 
+</span><span class="">  320: =cut
+</span><span class="">  321: 
+</span><span class="">  322: # The key file is &lt;keydir&gt;/&lt;selector&gt;.private.  With no selector named the
+</span><span class="">  323: # selector is the name of the only key in the directory, which is the usual
+</span><span class="">  324: # case: one key, published for every domain this host sends as.  Anything
+</span><span class="">  325: # ambiguous is a warning rather than a guess.
+</span><span class="">  326: sub selector
+</span><span class="">  327: {
+</span><span class=""><span class="lcsaj-tip"><span class="lcsaj-dot">●</span><span class="lcsaj-tip-text">328 → 335 → 341</span></span>  328: 	my $self = shift;
+</span><span class="">  329: 
+</span><span class="">  330: 	my $selector = $self-&gt;{&#39;selector&#39;};
+</span><span class="killed tooltip" data-tooltip="Mutations here were killed. Tests are effectively covering this logic.">  331: 	return $selector if(defined($selector) &amp;&amp; length($selector));
+</span><p> <b> Mutants (Total: 2, Killed: 2, Survived: 0)</b><p><span class="">  332: 
+</span><span class="">  333: 	# A named key file carries its selector in its name, which is the layout
+</span><span class="">  334: 	# the keys are kept in: &lt;keydir&gt;/&lt;selector&gt;.private.
+</span><span class="killed tooltip" data-tooltip="Mutations here were killed. Tests are effectively covering this logic.">  335: 	if(defined($self-&gt;{&#39;keyfile&#39;})) {
+</span><p> <b> Mutants (Total: 1, Killed: 1, Survived: 0)</b><p><span class="">  336: 		(my $from_name = $self-&gt;{&#39;keyfile&#39;}) =~ s{.*[\\/]}{};
+</span><span class="">  337: 		$from_name =~ s/\.(?:private|key|pem)\z//;
+</span><span class="killed tooltip" data-tooltip="Mutations here were killed. Tests are effectively covering this logic.">  338: 		return $from_name if(length($from_name));
+</span><p> <b> Mutants (Total: 2, Killed: 2, Survived: 0)</b><p><span class="">  339: 	}
+</span><span class="">  340: 
+</span><span class=""><span class="lcsaj-tip"><span class="lcsaj-dot">●</span><span class="lcsaj-tip-text">341 → 348 → 352</span></span>  341: 	opendir(my $dh, $self-&gt;{&#39;keydir&#39;}) or do {
+</span><span class="">  342: 		warn &quot;Mail::Send::DKIM: cannot read $self-&gt;{&#39;keydir&#39;}: $!&quot;;
+</span><span class="">  343: 		return;
+</span><span class="">  344: 	};
+</span><span class="">  345: 	my @keys = sort grep { /\.private\z/ } readdir($dh);
+</span><span class="">  346: 	closedir($dh);
+</span><span class="">  347: 
+</span><span class="killed tooltip" data-tooltip="Mutations here were killed. Tests are effectively covering this logic.">  348: 	unless(@keys == 1) {
+</span><p> <b> Mutants (Total: 2, Killed: 2, Survived: 0)</b><p><span class="">  349: 		warn sprintf(&quot;Mail::Send::DKIM: %s holds %d key(s); name the selector to choose one&quot;,
+</span><span class="">  350: 			$self-&gt;{&#39;keydir&#39;}, scalar(@keys));
+</span><span class="">  351: 		return;
+</span><span class="">  352: 	}
+</span><span class="">  353: 
+</span><span class="">  354: 	(my $found = $keys[0]) =~ s/\.private\z//;
+</span><span class="">  355: 
+</span><span class="killed tooltip" data-tooltip="Mutations here were killed. Tests are effectively covering this logic.">  356: 	return $found;
+</span><p> <b> Mutants (Total: 2, Killed: 2, Survived: 0)</b><p><span class="">  357: }
+</span><span class="">  358: 
+</span><span class="">  359: 1;
+</span><span class="">  360: 
+</span><span class="">  361: __END__
+</span><span class="">  362: 
+</span><span class="">  363: =head1 A CRONTAB ENTRY
+</span><span class="">  364: 
+</span><span class="">  365: A job that sends mail from cron is where an unsigned message is least likely to
+</span><span class="">  366: be noticed, so that is usually where this module earns its keep: the program
+</span><span class="">  367: that ships with it, F&lt;mail-dkim&gt;, is put where the job would have called
+</span><span class="">  368: sendmail(1), and the job itself is not changed.
+</span><span class="">  369: 
+</span><span class="">  370: The weekly summary in this distribution is such a job, and its mail goes out
+</span><span class="">  371: through F&lt;mail-dkim&gt;.  A crontab line for it looks like this, with the values of
+</span><span class="">  372: the machine it runs on:
+</span><span class="">  373: 
+</span><span class="">  374: 	0 6 * * 1 DMARC_EXPECTED=192.0.2.10 MAIL_TO=alerts@example.org \
+</span><span class="">  375: 		PERL=/usr/bin/perl /usr/local/bin/dmarc-weekly.sh
+</span><span class="">  376: 
+</span><span class="">  377: The three settings are not optional, because cron starts a job with almost no
+</span><span class="">  378: environment.  C&lt;DMARC_EXPECTED&gt; is what makes a sender nobody expected a
+</span><span class="">  379: finding, and the run stops with a usage error without it, since guessing would
+</span><span class="">  380: excuse every sender.  C&lt;MAIL_TO&gt; is where a week that needs looking at is
+</span><span class="">  381: mailed, and is also the address the alert is sent as unless C&lt;MAIL_FROM&gt; says
+</span><span class="">  382: otherwise.  C&lt;PERL&gt; has to be an absolute path to a perl that has
+</span><span class="">  383: C&lt;XML::PP&gt;, as cron&#39;s C&lt;PATH&gt; usually holds only the system one; F&lt;--crontab&gt;
+</span><span class="">  384: fills it in with the first perl on the machine that can load the module.
+</span><span class="">  385: C&lt;DMARC_DIR&gt; and C&lt;DMARC_ARCHIVE_DIR&gt; are left out of the line because they
+</span><span class="">  386: default to C&lt;~/Downloads&gt; and C&lt;~/dmarc-archive&gt;.
+</span><span class="">  387: 
+</span><span class="">  388: F&lt;dmarc-weekly.sh --crontab&gt; prints that line with the path and the perl filled
+</span><span class="">  389: in for the machine it runs on, which is more use than an example carrying
+</span><span class="">  390: somebody else&#39;s values; for that reason no example crontab file is shipped or
+</span><span class="">  391: installed.  A job of your own takes the same shape with F&lt;mail-dkim&gt; in place of
+</span><span class="">  392: the wrapper: C&lt;DKIM_DOMAINS&gt; and C&lt;DKIM_KEYDIR&gt; say what to sign for, and the
+</span><span class="">  393: arguments given to it are passed to sendmail(1) as they are.
+</span><span class="">  394: 
+</span><span class="">  395: =head1 SEE ALSO
+</span><span class="">  396: 
+</span><span class="">  397: =over 4
+</span><span class="">  398: 
+</span><span class="">  399: =item * L&lt;Configure an Object at Runtime|Object::Configure&gt;
+</span><span class="">  400: 
+</span><span class="">  401: =item * L&lt;Test Dashboard|https://nigelhorne.github.io/Mail-Send-DKIM/coverage/&gt;
+</span><span class="">  402: 
+</span><span class="">  403: =back
+</span><span class="">  404: 
+</span><span class="">  405: L&lt;Mail::DKIM::Signer&gt;, which does the signing underneath, and L&lt;/PROGRAMS&gt;
+</span><span class="">  406: above for the programs this distribution installs beside the module.
+</span><span class="">  407: 
+</span><span class="">  408: =head1 AUTHOR
+</span><span class="">  409: 
+</span><span class="">  410: Nigel Horne, C&lt;&lt; &lt;njh at nigelhorne.com&gt; &gt;&gt;
+</span><span class="">  411: 
+</span><span class="">  412: =head1 LICENCE AND COPYRIGHT
+</span><span class="">  413: 
+</span><span class="">  414: Copyright 2026 Nigel Horne.
+</span><span class="">  415: 
+</span><span class="">  416: Usage is subject to the GPL2 licence terms.
+</span><span class="">  417: If you use it,
+</span><span class="">  418: please let me know.
+</span><span class="">  419: 
+</span><span class="">  420: =cut
+</span><span class="">  421: 
+</span><span class="">  422: 1;
+</span></pre>
+
+<script>
+function toggleTheme() {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+}
+
+(function() {
+    const saved = localStorage.getItem('theme');
+    if(saved) {
+        document.documentElement.setAttribute('data-theme', saved);
+    }
+})();
+
+document.addEventListener("mousemove", function(e) {
+	document.querySelectorAll(".lcsaj-tip-text, .cpd-tip-text").forEach(function(tip) {
+		tip.style.left = (e.clientX + 12) + "px";
+		tip.style.top  = (e.clientY + 12) + "px";
+	});
+});
+</script>
+</body>
+</html>
+	
