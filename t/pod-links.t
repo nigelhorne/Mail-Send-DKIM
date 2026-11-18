@@ -10,6 +10,7 @@
 use strict;
 use warnings;
 
+use Test::DescribeMe qw(author);
 use Test::Most;
 
 use File::Basename qw(dirname);
@@ -34,7 +35,7 @@ sub slurp
 	return $text;
 }
 
-my ($repository) = slurp($MAKEFILE) =~ /'repository'\s*=>\s*'([^']+)'/;
+my ($repository) = slurp($MAKEFILE) =~ /'?repository'?\s*=>\s*\{/;
 ok(defined($repository), 'Makefile.PL names the repository') or BAIL_OUT('no repository URL to compare the links with');
 $repository =~ s{/+$}{};
 

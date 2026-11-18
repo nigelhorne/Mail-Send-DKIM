@@ -8,6 +8,7 @@
 use strict;
 use warnings;
 
+use Test::DescribeMe qw(author);
 use Test::Most;
 
 use File::Basename qw(dirname);

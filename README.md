@@ -190,6 +190,14 @@ arguments given to it are passed to sendmail(1) as they are.
 [Mail::DKIM::Signer](https://metacpan.org/pod/Mail%3A%3ADKIM%3A%3ASigner), which does the signing underneath, and ["PROGRAMMES"](#programmes)
 above for the programmes this distribution installs beside the module.
 
-## Licence
+## Author
 
-GNU General Public License, version 2, as in the `LICENSE` file.
+Nigel Horne, `<njh at nigelhorne.com>`
+
+## Licence and Copyright
+
+Copyright 2026 Nigel Horne.
+
+Usage is subject to the GPL2 licence terms.
+If you use it,
+please let me know.
