@@ -4,6 +4,10 @@
 
 Mail::Send::DKIM - sign a message with DKIM and hand it to sendmail
 
+## Version
+
+0.001.0
+
 ## Synopsis
 
 ```perl
@@ -37,71 +41,6 @@ the receiver with the CRs doubled and fail the signature it had just been given.
 Nothing here dies because a key is missing: signing either produces a signed
 message or produces nothing and says why on standard error, so a caller can
 always fall back to sending the message as it is.
-
-## Methods
-
-- **new** %options
-    - `domains`
-
-        The domains to sign for, either an array reference or a string of them
-        separated by commas or spaces.  Defaults to `$ENV{DKIM_DOMAINS}`.  A message
-        from any other domain is left alone.
-
-    - `keydir`
-
-        Where the private keys are.  Defaults to `$ENV{DKIM_KEYDIR}`, or `~/dkim`.
-
-    - `selector`
-
-        The selector the key is published under, which names the key file
-        `<keydir>/<selector>.private`.  Defaults to `$ENV{DKIM_SELECTOR}`; with
-        neither set, the key file's own name is the selector when **keyfile** is given,
-        and otherwise the only `*.private` file in **keydir** is used and its name is
-        the selector.
-
-    - `keyfile`
-
-        The private key to sign with, when it does not live at
-        `<keydir>/<selector>.private` - a tester given one key to try, for
-        instance.  Defaults to `$ENV{DKIM_KEYFILE}`.  It is used as it stands, and
-        the selector comes from its name unless one is given.
-
-    - `sendmail`
-
-        The program **send** hands the message to.  Defaults to `$ENV{SENDMAIL}`, or
-        `/usr/sbin/sendmail`.
-- **sign** $message
-
-    Returns the message with a `DKIM-Signature` header added, or `undef` when
-    there is nothing to do or nothing that can be done: the domain is not one of
-    **domains**, there is no `From:` header, no key can be found or read, or the
-    signer failed.  The reasons are warnings on standard error; the message itself
-    is never altered in the undef case, so the caller sends it unchanged.
-    Carriage returns are folded to LF on the way, so what comes back is in the
-    local form.
-
-- **send** $message, @arguments
-
-    Pipes the message to **sendmail** with the arguments given - `-t`, `-f` and
-    the rest are sendmail's own - and returns `0` when sendmail accepted the
-    message, sendmail's exit status when it did not, and `1` when sendmail cannot
-    be run at all.  The message is normalised to LF first, so nothing that arrived
-    with CRLF - signed or passed through unsigned - carries a carriage return to
-    the MTA.
-
-- **from\_domain** $message
-
-    The domain of the address in the first `From:` header, in lower case, or
-    `undef` when there is no such header.  Folded headers and display names are
-    understood.
-
-- **selector**
-
-    The selector the message will be signed under: the one given to **new** or read
-    from `DKIM_SELECTOR`, otherwise the name of the **keyfile** when one is given,
-    otherwise the name of the only `*.private` file in **keydir**.  `undef` when it
-    cannot be decided - no key, or several keys and no name - and the reason is a
-    warning on standard error.  **sign** asks this before doing anything else.
 
 ## Environment
 
@@ -150,6 +89,73 @@ pages once installed.
 
 The three DMARC programs are the reason the module exists: they report on the
 mail it signs, and the weekly one sends its own report through it.
+
+## Methods
+
+### **New** %Options
+
+- `domains`
+
+    The domains to sign for, either an array reference or a string of them
+    separated by commas or spaces.  Defaults to `$ENV{DKIM_DOMAINS}`.  A message
+    from any other domain is left alone.
+
+- `keydir`
+
+    Where the private keys are.  Defaults to `$ENV{DKIM_KEYDIR}`, or `~/dkim`.
+
+- `selector`
+
+    The selector the key is published under, which names the key file
+    `<keydir>/<selector>.private`.  Defaults to `$ENV{DKIM_SELECTOR}`; with
+    neither set, the key file's own name is the selector when **keyfile** is given,
+    and otherwise the only `*.private` file in **keydir** is used and its name is
+    the selector.
+
+- `keyfile`
+
+    The private key to sign with, when it does not live at
+    `<keydir>/<selector>.private` - a tester given one key to try, for
+    instance.  Defaults to `$ENV{DKIM_KEYFILE}`.  It is used as it stands, and
+    the selector comes from its name unless one is given.
+
+- `sendmail`
+
+    The program **send** hands the message to.  Defaults to `$ENV{SENDMAIL}`, or
+    `/usr/sbin/sendmail`.
+
+### **Sign** $Message
+
+Returns the message with a `DKIM-Signature` header added, or `undef` when
+there is nothing to do or nothing that can be done: the domain is not one of
+**domains**, there is no `From:` header, no key can be found or read, or the
+signer failed.  The reasons are warnings on standard error; the message itself
+is never altered in the undef case, so the caller sends it unchanged.
+Carriage returns are folded to LF on the way, so what comes back is in the
+local form.
+
+### **Send** $Message, @Arguments
+
+Pipes the message to **sendmail** with the arguments given - `-t`, `-f` and
+the rest are sendmail's own - and returns `0` when sendmail accepted the
+message, sendmail's exit status when it did not, and `1` when sendmail cannot
+be run at all.  The message is normalised to LF first, so nothing that arrived
+with CRLF - signed or passed through unsigned - carries a carriage return to
+the MTA.
+
+### **\_From\_Domain** $Message
+
+The domain of the address in the first `From:` header, in lower case, or
+`undef` when there is no such header.  Folded headers and display names are
+understood.
+
+### **Selector**
+
+The selector the message will be signed under: the one given to **new** or read
+from `DKIM_SELECTOR`, otherwise the name of the **keyfile** when one is given,
+otherwise the name of the only `*.private` file in **keydir**.  `undef` when it
+cannot be decided - no key, or several keys and no name - and the reason is a
+warning on standard error.  **sign** asks this before doing anything else.
 
 ## A Crontab Entry
 

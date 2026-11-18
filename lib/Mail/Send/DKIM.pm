@@ -14,183 +14,13 @@ use Object::Configure;
 
 use version; our $VERSION = version->declare('0.001.0');
 
-sub new
-{
-	my $class = shift;
-
-	# Handle hash or hashref arguments
-	my $params = Params::Get::get_params(undef, \@_) // {};
-
-	$params = Object::Configure::configure($class, $params);
-
-	my $home = $params->{home} || $ENV{'HOME'} || (getpwuid($<))[7] || '.';
-
-	my $domains = $params->{'domains'} // $ENV{'DKIM_DOMAINS'} // '';
-	my @domains = ref($domains) eq 'ARRAY' ? @$domains : split(/[\s,]+/, $domains);
-
-	my $self = {
-		'domains' => { map { lc($_) => 1 } grep { length } @domains },
-		'keydir' => $params->{'keydir'} // $ENV{'DKIM_KEYDIR'} // "$home/dkim",
-		'selector' => $params->{'selector'} // $ENV{'DKIM_SELECTOR'},
-		'keyfile' => $params->{'keyfile'} // $ENV{'DKIM_KEYFILE'},
-		'sendmail' => $params->{'sendmail'} // $ENV{'SENDMAIL'} // '/usr/sbin/sendmail',
-	};
-
-	return bless($self, $class);
-}
-
-sub sign
-{
-	my $self = shift;
-
-	my $params = Params::Get::get_params('message', \@_);
-	my $message = $params->{message};
-
-	my $domain = from_domain($message);
-	return unless(defined($domain));
-	return unless($self->{'domains'}->{$domain});
-
-	my $selector = $self->selector;
-	return unless(defined($selector));
-
-	# A key file named outright needs neither the directory nor the naming
-	# convention; otherwise the key is <keydir>/<selector>.private.
-	my $keyfile = $self->{'keyfile'} // $self->{'keydir'} . "/$selector.private";
-	unless(-r $keyfile) {
-		warn "Mail::Send::DKIM: no readable key at $keyfile; sending $domain unsigned\n";
-		return;
-	}
-
-	# DKIM hashes the message in the form it travels in, where every line
-	# ends CRLF, so the signature is made over a CRLF copy of what arrived.
-	(my $wire = _local($message)) =~ s/\n/\r\n/g;
-
-	my $signed;
-	eval {
-		my $signer = Mail::DKIM::Signer->new(
-			Algorithm => 'rsa-sha256',
-			Method => 'relaxed',
-			Domain => $domain,
-			Selector => $selector,
-			KeyFile => $keyfile,
-		);
-		$signer->PRINT($wire);
-		$signer->CLOSE;
-		$signed = $signer->signature->as_string . "\n" . _local($message);
-		1;
-	} or do {
-		my $error = $@ || 'unknown error';
-		chomp($error);
-		warn "Mail::Send::DKIM: cannot sign for $domain ($error); sending unsigned\n";
-		return;
-	};
-
-	return $signed;
-}
-
-sub send
-{
-	my ($self, $message, @args) = @_;
-
-	open(my $sendmail, '|-', $self->{'sendmail'}, @args) or do {
-		warn "Mail::Send::DKIM: cannot run $self->{'sendmail'}: $!\n";
-		return 1;
-	};
-	print $sendmail _local($message);
-
-	return 0 if(close($sendmail));
-
-	my $status = $? >> 8;
-
-	return $status || 1;
-}
-
-#
-# What is handed to sendmail is the local form of the message: LF line endings
-# and no carriage return anywhere, whatever arrived.  A CR is data to the MTA
-# that keeps the message - Postfix's sendmail_fix_line_endings and Exim both
-# write the CRLF of SMTP themselves - so one that survived would reach the
-# receiver doubled, and the message would fail the signature it was just given.
-sub _local
-{
-	my $message = shift;
-
-	$message =~ s/\r\n/\n/g;
-	$message =~ s/\r//g;
-
-	return $message;
-}
-
-#
-# The domain an address is at, from the first From: header.  A header field can
-# be folded over several lines, so the continuation lines are joined first, and
-# a display name is dropped in favour of the address in angle brackets.
-sub from_domain
-{
-	my $message = shift;
-
-	my ($head) = $message =~ /\A(.*?)\r?\n\r?\n/s;
-	$head = $message unless(defined($head));
-	$head =~ s/\r?\n[ \t]+/ /g;
-	return unless($head =~ /^From:[ \t]*(.*?)\s*$/mi);
-
-	my $value = $1;
-	my ($address) = $value =~ /<([^>]*)>/;
-	$address = $value unless(defined($address));
-
-	# An address can be followed by a comment, so the domain is the last
-	# thing that looks like one rather than the end of the string.
-	my @domains = $address =~ /\@([A-Za-z0-9.-]+)/g;
-	return unless(@domains);
-
-	return lc($domains[-1]);
-}
-
-#
-# The key file is <keydir>/<selector>.private.  With no selector named the
-# selector is the name of the only key in the directory, which is the usual
-# case: one key, published for every domain this host sends as.  Anything
-# ambiguous is a warning rather than a guess.
-sub selector
-{
-	my $self = shift;
-
-	my $selector = $self->{'selector'};
-	return $selector if(defined($selector) && length($selector));
-
-	# A named key file carries its selector in its name, which is the layout
-	# the keys are kept in: <keydir>/<selector>.private.
-	if(defined($self->{'keyfile'})) {
-		(my $from_name = $self->{'keyfile'}) =~ s{.*[\\/]}{};
-		$from_name =~ s/\.(?:private|key|pem)\z//;
-		return $from_name if(length($from_name));
-	}
-
-	opendir(my $dh, $self->{'keydir'}) or do {
-		warn "Mail::Send::DKIM: cannot read $self->{'keydir'}: $!\n";
-		return;
-	};
-	my @keys = sort grep { /\.private\z/ } readdir($dh);
-	closedir($dh);
-
-	unless(@keys == 1) {
-		warn sprintf("Mail::Send::DKIM: %s holds %d key(s); name the selector to choose one\n",
-			$self->{'keydir'}, scalar(@keys));
-		return;
-	}
-
-	(my $found = $keys[0]) =~ s/\.private\z//;
-
-	return $found;
-}
-
-1;
-
-__END__
-
 =head1 NAME
 
 Mail::Send::DKIM - sign a message with DKIM and hand it to sendmail
+
+=head1 VERSION
+
+0.001.0
 
 =head1 SYNOPSIS
 
@@ -223,81 +53,6 @@ the receiver with the CRs doubled and fail the signature it had just been given.
 Nothing here dies because a key is missing: signing either produces a signed
 message or produces nothing and says why on standard error, so a caller can
 always fall back to sending the message as it is.
-
-=head1 METHODS
-
-=over 4
-
-=item B<new> %options
-
-=over 4
-
-=item C<domains>
-
-The domains to sign for, either an array reference or a string of them
-separated by commas or spaces.  Defaults to C<$ENV{DKIM_DOMAINS}>.  A message
-from any other domain is left alone.
-
-=item C<keydir>
-
-Where the private keys are.  Defaults to C<$ENV{DKIM_KEYDIR}>, or F<~/dkim>.
-
-=item C<selector>
-
-The selector the key is published under, which names the key file
-F<< <keydir>/<selector>.private >>.  Defaults to C<$ENV{DKIM_SELECTOR}>; with
-neither set, the key file's own name is the selector when B<keyfile> is given,
-and otherwise the only F<*.private> file in B<keydir> is used and its name is
-the selector.
-
-=item C<keyfile>
-
-The private key to sign with, when it does not live at
-F<< <keydir>/<selector>.private >> - a tester given one key to try, for
-instance.  Defaults to C<$ENV{DKIM_KEYFILE}>.  It is used as it stands, and
-the selector comes from its name unless one is given.
-
-=item C<sendmail>
-
-The program B<send> hands the message to.  Defaults to C<$ENV{SENDMAIL}>, or
-F</usr/sbin/sendmail>.
-
-=back
-
-=item B<sign> $message
-
-Returns the message with a C<DKIM-Signature> header added, or C<undef> when
-there is nothing to do or nothing that can be done: the domain is not one of
-B<domains>, there is no C<From:> header, no key can be found or read, or the
-signer failed.  The reasons are warnings on standard error; the message itself
-is never altered in the undef case, so the caller sends it unchanged.
-Carriage returns are folded to LF on the way, so what comes back is in the
-local form.
-
-=item B<send> $message, @arguments
-
-Pipes the message to B<sendmail> with the arguments given - C<-t>, C<-f> and
-the rest are sendmail's own - and returns C<0> when sendmail accepted the
-message, sendmail's exit status when it did not, and C<1> when sendmail cannot
-be run at all.  The message is normalised to LF first, so nothing that arrived
-with CRLF - signed or passed through unsigned - carries a carriage return to
-the MTA.
-
-=item B<from_domain> $message
-
-The domain of the address in the first C<From:> header, in lower case, or
-C<undef> when there is no such header.  Folded headers and display names are
-understood.
-
-=item B<selector>
-
-The selector the message will be signed under: the one given to B<new> or read
-from C<DKIM_SELECTOR>, otherwise the name of the B<keyfile> when one is given,
-otherwise the name of the only F<*.private> file in B<keydir>.  C<undef> when it
-cannot be decided - no key, or several keys and no name - and the reason is a
-warning on standard error.  B<sign> asks this before doing anything else.
-
-=back
 
 =head1 ENVIRONMENT
 
@@ -350,6 +105,260 @@ looks like.
 
 The three DMARC programs are the reason the module exists: they report on the
 mail it signs, and the weekly one sends its own report through it.
+
+=head1 METHODS
+
+=head2 B<new> %options
+
+=over 4
+
+=item C<domains>
+
+The domains to sign for, either an array reference or a string of them
+separated by commas or spaces.  Defaults to C<$ENV{DKIM_DOMAINS}>.  A message
+from any other domain is left alone.
+
+=item C<keydir>
+
+Where the private keys are.  Defaults to C<$ENV{DKIM_KEYDIR}>, or F<~/dkim>.
+
+=item C<selector>
+
+The selector the key is published under, which names the key file
+F<< <keydir>/<selector>.private >>.  Defaults to C<$ENV{DKIM_SELECTOR}>; with
+neither set, the key file's own name is the selector when B<keyfile> is given,
+and otherwise the only F<*.private> file in B<keydir> is used and its name is
+the selector.
+
+=item C<keyfile>
+
+The private key to sign with, when it does not live at
+F<< <keydir>/<selector>.private >> - a tester given one key to try, for
+instance.  Defaults to C<$ENV{DKIM_KEYFILE}>.  It is used as it stands, and
+the selector comes from its name unless one is given.
+
+=item C<sendmail>
+
+The program B<send> hands the message to.  Defaults to C<$ENV{SENDMAIL}>, or
+F</usr/sbin/sendmail>.
+
+=back
+
+=cut
+
+sub new
+{
+	my $class = shift;
+
+	# Handle hash or hashref arguments
+	my $params = Params::Get::get_params(undef, \@_) // {};
+
+	$params = Object::Configure::configure($class, $params);
+
+	my $home = $params->{home} || $ENV{'HOME'} || (getpwuid($<))[7] || '.';
+
+	my $domains = $params->{'domains'} // $ENV{'DKIM_DOMAINS'} // '';
+	my @domains = ref($domains) eq 'ARRAY' ? @$domains : split(/[\s,]+/, $domains);
+
+	my $self = {
+		'domains' => { map { lc($_) => 1 } grep { length } @domains },
+		'keydir' => $params->{'keydir'} // $ENV{'DKIM_KEYDIR'} // "$home/dkim",
+		'selector' => $params->{'selector'} // $ENV{'DKIM_SELECTOR'},
+		'keyfile' => $params->{'keyfile'} // $ENV{'DKIM_KEYFILE'},
+		'sendmail' => $params->{'sendmail'} // $ENV{'SENDMAIL'} // '/usr/sbin/sendmail',
+	};
+
+	return bless($self, $class);
+}
+
+=head2 B<sign> $message
+
+Returns the message with a C<DKIM-Signature> header added, or C<undef> when
+there is nothing to do or nothing that can be done: the domain is not one of
+B<domains>, there is no C<From:> header, no key can be found or read, or the
+signer failed.  The reasons are warnings on standard error; the message itself
+is never altered in the undef case, so the caller sends it unchanged.
+Carriage returns are folded to LF on the way, so what comes back is in the
+local form.
+
+=cut
+
+sub sign
+{
+	my $self = shift;
+
+	my $params = Params::Get::get_params('message', \@_);
+	my $message = $params->{message};
+
+	my $domain = from_domain($message);
+	return unless(defined($domain));
+	return unless($self->{'domains'}->{$domain});
+
+	my $selector = $self->selector;
+	return unless(defined($selector));
+
+	# A key file named outright needs neither the directory nor the naming
+	# convention; otherwise the key is <keydir>/<selector>.private.
+	my $keyfile = $self->{'keyfile'} // $self->{'keydir'} . "/$selector.private";
+	unless(-r $keyfile) {
+		warn "Mail::Send::DKIM: no readable key at $keyfile; sending $domain unsigned";
+		return;
+	}
+
+	# DKIM hashes the message in the form it travels in, where every line
+	# ends CRLF, so the signature is made over a CRLF copy of what arrived.
+	(my $wire = _local($message)) =~ s/\n/\r\n/g;
+
+	my $signed;
+	eval {
+		my $signer = Mail::DKIM::Signer->new(
+			Algorithm => 'rsa-sha256',
+			Method => 'relaxed',
+			Domain => $domain,
+			Selector => $selector,
+			KeyFile => $keyfile,
+		);
+		$signer->PRINT($wire);
+		$signer->CLOSE;
+		$signed = $signer->signature->as_string . "\n" . _local($message);
+		1;
+	} or do {
+		my $error = $@ || 'unknown error';
+		chomp($error);
+		warn "Mail::Send::DKIM: cannot sign for $domain ($error); sending unsigned";
+		return;
+	};
+
+	return $signed;
+}
+
+=head2 B<send> $message, @arguments
+
+Pipes the message to B<sendmail> with the arguments given - C<-t>, C<-f> and
+the rest are sendmail's own - and returns C<0> when sendmail accepted the
+message, sendmail's exit status when it did not, and C<1> when sendmail cannot
+be run at all.  The message is normalised to LF first, so nothing that arrived
+with CRLF - signed or passed through unsigned - carries a carriage return to
+the MTA.
+
+=cut
+
+sub send
+{
+	my ($self, $message, @args) = @_;
+
+	open(my $sendmail, '|-', $self->{'sendmail'}, @args) or do {
+		warn "Mail::Send::DKIM: cannot run $self->{'sendmail'}: $!";
+		return 1;
+	};
+	print $sendmail _local($message);
+
+	return 0 if(close($sendmail));
+
+	my $status = $? >> 8;
+
+	return $status || 1;
+}
+
+#
+# What is handed to sendmail is the local form of the message: LF line endings
+# and no carriage return anywhere, whatever arrived.  A CR is data to the MTA
+# that keeps the message - Postfix's sendmail_fix_line_endings and Exim both
+# write the CRLF of SMTP themselves - so one that survived would reach the
+# receiver doubled, and the message would fail the signature it was just given.
+sub _local
+{
+	my $message = shift;
+
+	$message =~ s/\r\n/\n/g;
+	$message =~ s/\r//g;
+
+	return $message;
+}
+
+=head2 B<_from_domain> $message
+
+The domain of the address in the first C<From:> header, in lower case, or
+C<undef> when there is no such header.  Folded headers and display names are
+understood.
+
+=cut
+
+#
+# The domain an address is at, from the first From: header.  A header field can
+# be folded over several lines, so the continuation lines are joined first, and
+# a display name is dropped in favour of the address in angle brackets.
+sub from_domain
+{
+	my $message = shift;
+
+	my ($head) = $message =~ /\A(.*?)\r?\n\r?\n/s;
+	$head = $message unless(defined($head));
+	$head =~ s/\r?\n[ \t]+/ /g;
+	return unless($head =~ /^From:[ \t]*(.*?)\s*$/mi);
+
+	my $value = $1;
+	my ($address) = $value =~ /<([^>]*)>/;
+	$address = $value unless(defined($address));
+
+	# An address can be followed by a comment, so the domain is the last
+	# thing that looks like one rather than the end of the string.
+	my @domains = $address =~ /\@([A-Za-z0-9.-]+)/g;
+	return unless(@domains);
+
+	return lc($domains[-1]);
+}
+
+=head2 B<selector>
+
+The selector the message will be signed under: the one given to B<new> or read
+from C<DKIM_SELECTOR>, otherwise the name of the B<keyfile> when one is given,
+otherwise the name of the only F<*.private> file in B<keydir>.  C<undef> when it
+cannot be decided - no key, or several keys and no name - and the reason is a
+warning on standard error.  B<sign> asks this before doing anything else.
+
+=cut
+
+# The key file is <keydir>/<selector>.private.  With no selector named the
+# selector is the name of the only key in the directory, which is the usual
+# case: one key, published for every domain this host sends as.  Anything
+# ambiguous is a warning rather than a guess.
+sub selector
+{
+	my $self = shift;
+
+	my $selector = $self->{'selector'};
+	return $selector if(defined($selector) && length($selector));
+
+	# A named key file carries its selector in its name, which is the layout
+	# the keys are kept in: <keydir>/<selector>.private.
+	if(defined($self->{'keyfile'})) {
+		(my $from_name = $self->{'keyfile'}) =~ s{.*[\\/]}{};
+		$from_name =~ s/\.(?:private|key|pem)\z//;
+		return $from_name if(length($from_name));
+	}
+
+	opendir(my $dh, $self->{'keydir'}) or do {
+		warn "Mail::Send::DKIM: cannot read $self->{'keydir'}: $!";
+		return;
+	};
+	my @keys = sort grep { /\.private\z/ } readdir($dh);
+	closedir($dh);
+
+	unless(@keys == 1) {
+		warn sprintf("Mail::Send::DKIM: %s holds %d key(s); name the selector to choose one",
+			$self->{'keydir'}, scalar(@keys));
+		return;
+	}
+
+	(my $found = $keys[0]) =~ s/\.private\z//;
+
+	return $found;
+}
+
+1;
+
+__END__
 
 =head1 A CRONTAB ENTRY
 
