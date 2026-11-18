@@ -7,6 +7,8 @@ requires 'IO::Compress::Zip';
 requires 'IO::Uncompress::Gunzip';
 requires 'IO::Uncompress::Unzip';
 requires 'Mail::DKIM';
+requires 'Object::Configure';
+requires 'Params::Get';
 requires 'Readonly';
 requires 'XML::LibXML';
 
