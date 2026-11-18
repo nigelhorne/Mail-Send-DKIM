@@ -13,6 +13,7 @@ use warnings;
 
 use Test::Most;
 
+use Config;
 use File::Basename qw(dirname);
 use File::Copy qw(copy);
 use File::Path qw(make_path);
@@ -428,7 +429,16 @@ subtest 'an installed copy finds the module under lib/perl5' => sub {
 		die "fork: $!" unless(defined($pid));
 
 		if(!$pid) {
-			delete($ENV{'PERL5LIB'});
+			# Keep the dependencies' directories (CI installs Mail::DKIM into
+			# local/lib/perl5), but drop any that could supply the module under
+			# test, so the script has to find it by itself.
+			my @keep = grep { length($_) && !-e File::Spec->catfile($_, 'Mail', 'Send', 'DKIM.pm') }
+				split(/\Q$Config::Config{path_sep}\E/, $ENV{'PERL5LIB'} // '');
+			if(@keep) {
+				$ENV{'PERL5LIB'} = join($Config::Config{path_sep}, @keep);
+			} else {
+				delete($ENV{'PERL5LIB'});
+			}
 			open(STDOUT, '>', $out) or exit 127;
 			open(STDERR, '>&', \*STDOUT) or exit 127;
 			exec($^X, '-c', $installed) or exit 127;
