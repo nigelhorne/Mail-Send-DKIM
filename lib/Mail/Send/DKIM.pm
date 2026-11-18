@@ -9,24 +9,31 @@ use strict;
 use warnings;
 
 use Mail::DKIM::Signer;
+use Params::Get;
+use Object::Configure;
 
 use version; our $VERSION = version->declare('0.001.0');
 
 sub new
 {
-	my ($class, %args) = @_;
+	my $class = shift;
 
-	my $home = $ENV{'HOME'} || (getpwuid($<))[7] || '.';
+	# Handle hash or hashref arguments
+	my $params = Params::Get::get_params(undef, \@_) // {};
 
-	my $domains = $args{'domains'} // $ENV{'DKIM_DOMAINS'} // '';
+	$params = Object::Configure::configure($class, $params);
+
+	my $home = $params->{home} || $ENV{'HOME'} || (getpwuid($<))[7] || '.';
+
+	my $domains = $params->{'domains'} // $ENV{'DKIM_DOMAINS'} // '';
 	my @domains = ref($domains) eq 'ARRAY' ? @$domains : split(/[\s,]+/, $domains);
 
 	my $self = {
 		'domains' => { map { lc($_) => 1 } grep { length } @domains },
-		'keydir' => $args{'keydir'} // $ENV{'DKIM_KEYDIR'} // "$home/dkim",
-		'selector' => $args{'selector'} // $ENV{'DKIM_SELECTOR'},
-		'keyfile' => $args{'keyfile'} // $ENV{'DKIM_KEYFILE'},
-		'sendmail' => $args{'sendmail'} // $ENV{'SENDMAIL'} // '/usr/sbin/sendmail',
+		'keydir' => $params->{'keydir'} // $ENV{'DKIM_KEYDIR'} // "$home/dkim",
+		'selector' => $params->{'selector'} // $ENV{'DKIM_SELECTOR'},
+		'keyfile' => $params->{'keyfile'} // $ENV{'DKIM_KEYFILE'},
+		'sendmail' => $params->{'sendmail'} // $ENV{'SENDMAIL'} // '/usr/sbin/sendmail',
 	};
 
 	return bless($self, $class);
@@ -34,7 +41,10 @@ sub new
 
 sub sign
 {
-	my ($self, $message) = @_;
+	my $self = shift;
+
+	my $params = Params::Get::get_params('message', \@_);
+	my $message = $params->{message};
 
 	my $domain = from_domain($message);
 	return unless(defined($domain));
@@ -293,11 +303,11 @@ warning on standard error.  B<sign> asks this before doing anything else.
 
 B<DKIM_DOMAINS>, B<DKIM_KEYDIR>, B<DKIM_SELECTOR>, B<DKIM_KEYFILE> and
 B<SENDMAIL> are read by B<new> when the corresponding option is not given, so
-the command line programme needs no configuration of its own.
+the command line programs needs no configuration of its own.
 
-=head1 PROGRAMMES
+=head1 PROGRAMS
 
-The distribution is named after this module and installs four programmes with
+The distribution is named after this module and installs four programs with
 it, each with a page of its own: C<perldoc bin/mail-dkim>,
 C<perldoc bin/dmarc-report.pl>, C<perldoc bin/dmarc-check-mail.pl> and
 C<perldoc bin/dmarc-weekly.sh> in a checkout, and the same pages as manual
@@ -338,13 +348,13 @@ looks like.
 
 =back
 
-The three DMARC programmes are the reason the module exists: they report on the
+The three DMARC programs are the reason the module exists: they report on the
 mail it signs, and the weekly one sends its own report through it.
 
 =head1 A CRONTAB ENTRY
 
 A job that sends mail from cron is where an unsigned message is least likely to
-be noticed, so that is usually where this module earns its keep: the programme
+be noticed, so that is usually where this module earns its keep: the program
 that ships with it, F<mail-dkim>, is put where the job would have called
 sendmail(1), and the job itself is not changed.
 
@@ -375,8 +385,16 @@ arguments given to it are passed to sendmail(1) as they are.
 
 =head1 SEE ALSO
 
-L<Mail::DKIM::Signer>, which does the signing underneath, and L</PROGRAMMES>
-above for the programmes this distribution installs beside the module.
+=over 4
+
+=item * L<Configure an Object at Runtime|Object::Configure>
+
+=item * L<Test Dashboard|https://nigelhorne.github.io/Mail-Send-DKIM/coverage/>
+
+=back
+
+L<Mail::DKIM::Signer>, which does the signing underneath, and L</PROGRAMS>
+above for the programs this distribution installs beside the module.
 
 =head1 AUTHOR
 

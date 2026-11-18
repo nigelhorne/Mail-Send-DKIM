@@ -37,6 +37,8 @@ WriteMakefile(
 		'IO::Uncompress::Gunzip' => 0,
 		'IO::Uncompress::Unzip' => 0,
 		'Mail::DKIM' => 0,
+		'Object::Configure' => 0,
+		'Params::Get' => 0,
 		'Readonly' => 0,
 		'XML::LibXML' => 0,
 	}, 'TEST_REQUIRES' => {

@@ -107,11 +107,11 @@ always fall back to sending the message as it is.
 
 **DKIM\_DOMAINS**, **DKIM\_KEYDIR**, **DKIM\_SELECTOR**, **DKIM\_KEYFILE** and
 **SENDMAIL** are read by **new** when the corresponding option is not given, so
-the command line programme needs no configuration of its own.
+the command line programs needs no configuration of its own.
 
-## Programmes
+## Programs
 
-The distribution is named after this module and installs four programmes with
+The distribution is named after this module and installs four programs with
 it, each with a page of its own: `perldoc bin/mail-dkim`,
 `perldoc bin/dmarc-report.pl`, `perldoc bin/dmarc-check-mail.pl` and
 `perldoc bin/dmarc-weekly.sh` in a checkout, and the same pages as manual
@@ -148,13 +148,13 @@ pages once installed.
     sends the same message unsigned, which is what a cron job without the module
     looks like.
 
-The three DMARC programmes are the reason the module exists: they report on the
+The three DMARC programs are the reason the module exists: they report on the
 mail it signs, and the weekly one sends its own report through it.
 
 ## A Crontab Entry
 
 A job that sends mail from cron is where an unsigned message is least likely to
-be noticed, so that is usually where this module earns its keep: the programme
+be noticed, so that is usually where this module earns its keep: the program
 that ships with it, `mail-dkim`, is put where the job would have called
 sendmail(1), and the job itself is not changed.
 
@@ -187,8 +187,11 @@ arguments given to it are passed to sendmail(1) as they are.
 
 ## See Also
 
-[Mail::DKIM::Signer](https://metacpan.org/pod/Mail%3A%3ADKIM%3A%3ASigner), which does the signing underneath, and ["PROGRAMMES"](#programmes)
-above for the programmes this distribution installs beside the module.
+- [Configure an Object at Runtime](https://metacpan.org/pod/Object%3A%3AConfigure)
+- [Test Dashboard](https://nigelhorne.github.io/Mail-Send-DKIM/coverage/)
+
+[Mail::DKIM::Signer](https://metacpan.org/pod/Mail%3A%3ADKIM%3A%3ASigner), which does the signing underneath, and ["PROGRAMS"](#programs)
+above for the programs this distribution installs beside the module.
 
 ## Author
 
