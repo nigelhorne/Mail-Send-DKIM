@@ -1,22 +1,28 @@
 #!/usr/bin/env perl
-#
-# Mail::Send::DKIM - named after the module it ships, so that the name in the
-# metadata is one a caller can actually C<use>, and so that PAUSE indexes the
-# distribution under the module that does the work.  The programmes that use
-# the module travel with it and are installed by the same command.
 
 use strict;
 use warnings;
 
 use ExtUtils::MakeMaker;
 
+my $dist = {
+	COMPRESS => 'gzip -9f',	# Compress tarball using gzip
+	SUFFIX => 'gz',	# File suffix for tarball
+};
+
+if($^O eq 'darwin') {
+	$dist->{'TAR'} = 'gtar';
+}
+
 WriteMakefile(
 	'NAME' => 'Mail::Send::DKIM',
 	'VERSION_FROM' => 'lib/Mail/Send/DKIM.pm',
 	'ABSTRACT' => 'Sign mail with DKIM, and summarise DMARC reports',
-	'AUTHOR' => 'Nigel Horne <njh@bandsman.co.uk>',
+	'AUTHOR' => 'Nigel Horne <njh@nigehorne.com>',
 	'LICENSE' => 'gpl_2',
 	'MIN_PERL_VERSION' => '5.016',
+	dist => $dist,
+	clean	=> { FILES => 'Mail-Send-DKIM-*' },
 	CONFIGURE_REQUIRES => {
 		'ExtUtils::MakeMaker' => 6.64,	# Minimum version for TEST_REQUIRES
 	}, 'EXE_FILES' => [
@@ -33,8 +39,7 @@ WriteMakefile(
 		'Mail::DKIM' => 0,
 		'Readonly' => 0,
 		'XML::LibXML' => 0,
-	},
-	'TEST_REQUIRES' => {
+	}, 'TEST_REQUIRES' => {
 		'File::Temp' => 0,
 		'Net::DNS' => 0,
 		'Pod::Github' => 0,
@@ -42,9 +47,21 @@ WriteMakefile(
 		'Time::HiRes' => 0,
 	},
 	'META_MERGE' => {
-		'resources' => {
-			'repository' => 'https://github.com/nigelhorne/Mail-Send-DKIM',
-			'bugtracker' => 'https://github.com/nigelhorne/Mail-Send-DKIM/issues',
+		'meta-spec' => { version => 2 },
+		resources => {
+			homepage => 'https://metacpan.org/pod/Mail::Send::DKIM',
+			repository => {
+				type => 'git',
+				url => 'git://github.com/nigelhorne/Mail-Send-DKIM.git',
+				web => 'https://github.com/nigelhorne/Mail-Send-DKIM',
+				# license => 'http://dev.perl.org/licenses/',
+			}, bugtracker => {
+				web => 'https://rt.cpan.org/Public/Dist/Display.html?Name=Mail-Send-DKIM',
+				url => 'https://rt.cpan.org/Public/Dist/Display.html?Name=Mail-Send-DKIM',
+				# web => 'https://github.com/nigelhorne/Mail-Send-DKIM/issues',
+				# url => 'https://github.com/nigelhorne/Mail-Send-DKIM/issues',
+				mailto => 'bug-Mail-Send-DKIM@rt.cpan.org'
+			}
 		},
 	},
 );

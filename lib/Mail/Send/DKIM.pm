@@ -378,8 +378,18 @@ arguments given to it are passed to sendmail(1) as they are.
 L<Mail::DKIM::Signer>, which does the signing underneath, and L</PROGRAMMES>
 above for the programmes this distribution installs beside the module.
 
-=head1 LICENCE
+=head1 AUTHOR
 
-GNU General Public License, version 2, as in the F<LICENSE> file.
+Nigel Horne, C<< <njh at nigelhorne.com> >>
+
+=head1 LICENCE AND COPYRIGHT
+
+Copyright 2026 Nigel Horne.
+
+Usage is subject to the GPL2 licence terms.
+If you use it,
+please let me know.
 
 =cut
+
+1;
