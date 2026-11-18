@@ -10,7 +10,7 @@ use warnings;
 
 use Mail::DKIM::Signer;
 
-our $VERSION = '0.001';
+use version; our $VERSION = version->declare('0.001.0');
 
 sub new
 {

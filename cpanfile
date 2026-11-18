@@ -1,7 +1,25 @@
 # Generated from Makefile.PL using makefilepl2cpanfile
 
+requires 'perl', '5.016';
+
+requires 'IO::Compress::Gzip';
+requires 'IO::Compress::Zip';
+requires 'IO::Uncompress::Gunzip';
+requires 'IO::Uncompress::Unzip';
+requires 'Mail::DKIM';
+requires 'Readonly';
+requires 'XML::LibXML';
+
 on 'configure' => sub {
 	requires 'ExtUtils::MakeMaker', '6.64';   # Minimum version for TEST_REQUIRES
+};
+
+on 'test' => sub {
+	requires 'File::Temp';
+	requires 'Net::DNS';
+	requires 'Pod::Github';
+	requires 'Test::Most';
+	requires 'Time::HiRes';
 };
 
 on 'develop' => sub {
