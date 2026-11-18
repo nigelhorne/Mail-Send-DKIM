@@ -276,7 +276,7 @@ sub _local
 	return $message;
 }
 
-=head2 B<_from_domain> $message
+=head2 B<from_domain> $message
 
 The domain of the address in the first C<From:> header, in lower case, or
 C<undef> when there is no such header.  Folded headers and display names are

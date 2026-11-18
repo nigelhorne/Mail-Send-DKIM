@@ -3,7 +3,7 @@
 # The POD is the specification, so a public method that is not in it is a
 # method nobody can find and nobody has agreed to keep.  Pod::Coverage says the
 # same thing, but this is the one rule that matters here and it needs nothing
-# that is not already installed: every public sub must have an =item naming it.
+# that is not already installed: every public sub must have an =item or =head2 naming it.
 #
 # A private sub, one whose name begins with an underscore, is deliberately out
 # of scope: it is not part of what a caller may use, and documenting it would
@@ -59,11 +59,11 @@ foreach my $file (sort @modules) {
 		my @methods = $source =~ /^sub\s+([a-z]\w*)\b/mg;
 		ok(scalar(@methods) > 0, 'there are public methods to check');
 
-		# Methods are items in bold; C<> marks an option, a file, a
+		# Methods are items or second-level headings in bold; C<> marks an option, a file, a
 		# variable or a value, so an option sharing a method's name - as
 		# C<selector> in new() shares it with the selector method - does
 		# not count as documenting the method.
-		my %documented = map { $_ => 1 } ($source =~ /^=item\s+B<([^>]+)>/mg);
+		my %documented = map { $_ => 1 } ($source =~ /^=(?:item|head2)\s+B<([^>]+)>/mg);
 
 		foreach my $method (sort @methods) {
 			ok($documented{$method}, "B<$method> is documented as a method");
