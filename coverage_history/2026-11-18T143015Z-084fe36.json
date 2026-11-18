@@ -1,0 +1,881 @@
+{
+   "runs" : [
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012237.64712,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "-e",
+         "start" : 1795012225.40701,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012225.488,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "-e",
+         "start" : 1795012225.48792,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012228.2025,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "t/dmarc-check-mail.t",
+         "start" : 1795012225.64473,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012225.92183,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012225.81869,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012226.20017,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012226.09487,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012226.37341,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012226.37289,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012226.50809,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012226.50753,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012226.63676,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012226.63627,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012226.7653,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012226.76471,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012226.89458,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012226.8927,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012227.02852,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012227.02397,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012227.16335,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012227.15882,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012227.29174,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012227.29132,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012227.41785,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012227.41743,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012227.54256,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012227.54217,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012227.66684,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012227.66644,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012227.79101,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012227.79059,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012227.9165,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012227.91612,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012228.04082,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012228.04038,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012228.1658,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-check-mail.pl",
+         "start" : 1795012228.16534,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012231.89393,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "t/dmarc-report.t",
+         "start" : 1795012228.40983,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012228.54293,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012228.54164,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012228.73567,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012228.73376,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012228.92459,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012228.92256,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012229.11336,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012229.11115,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012229.3216,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012229.32058,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012229.50502,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012229.50385,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012229.69767,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012229.69639,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012229.88448,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012229.88331,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012230.06749,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012230.06551,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012230.25619,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012230.25308,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012230.43959,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012230.4385,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012230.62073,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012230.6197,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012230.8076,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012230.80631,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012230.99818,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012230.99698,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012231.19739,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012231.19623,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012231.41756,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012231.41651,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012231.61839,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012231.61801,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012231.83048,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/dmarc-report.pl",
+         "start" : 1795012231.8097,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012235.61332,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "t/dmarc-weekly.t",
+         "start" : 1795012232.09075,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012232.22503,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/bin/dmarc-report.pl",
+         "start" : 1795012232.22331,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012232.4261,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/bin/dmarc-report.pl",
+         "start" : 1795012232.42476,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012232.6202,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/bin/dmarc-report.pl",
+         "start" : 1795012232.61979,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012232.80941,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/bin/dmarc-report.pl",
+         "start" : 1795012232.80908,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012233.00858,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/bin/dmarc-report.pl",
+         "start" : 1795012233.00737,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012233.20518,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/bin/dmarc-report.pl",
+         "start" : 1795012233.20388,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012233.41171,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/bin/dmarc-report.pl",
+         "start" : 1795012233.41037,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012233.58753,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "-e",
+         "start" : 1795012233.58746,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012233.6988,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "-e",
+         "start" : 1795012233.69873,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012233.80952,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "-e",
+         "start" : 1795012233.80945,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012234.11376,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/bin/dmarc-report.pl",
+         "start" : 1795012234.11258,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012234.38606,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/bin/mail-dkim",
+         "start" : 1795012234.36504,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012234.58282,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/bin/dmarc-report.pl",
+         "start" : 1795012234.58168,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012234.79435,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/bin/dmarc-report.pl",
+         "start" : 1795012234.793,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012235.00581,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/tmp/olBo_YGxKu/installed-prefix/bin/dmarc-report.pl",
+         "start" : 1795012235.00443,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012235.26652,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/tmp/olBo_YGxKu/installed-prefix/bin/dmarc-report.pl",
+         "start" : 1795012235.26523,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012235.54597,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/tmp/olBo_YGxKu/installed-prefix/bin/mail-dkim",
+         "start" : 1795012235.52328,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012236.9181,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "t/mail-dkim.t",
+         "start" : 1795012235.91787,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012236.56081,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/mail-dkim",
+         "start" : 1795012236.53786,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012236.84977,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM/t/../bin/mail-dkim",
+         "start" : 1795012236.82993,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012237.16205,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "t/pod-code.t",
+         "start" : 1795012237.14926,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012237.33017,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "t/pod-coverage.t",
+         "start" : 1795012237.32778,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012237.47986,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "t/pod-links.t",
+         "start" : 1795012237.47968,
+         "version" : "0.001.0"
+      },
+      {
+         "OS" : "linux",
+         "abstract" : "Sign mail with DKIM, and summarise DMARC reports",
+         "dir" : "/home/runner/work/Mail-Send-DKIM/Mail-Send-DKIM",
+         "finish" : 1795012237.62042,
+         "name" : "Mail-Send-DKIM",
+         "perl" : "5.40.5",
+         "run" : "t/readme.t",
+         "start" : 1795012237.62018,
+         "version" : "0.001.0"
+      }
+   ],
+   "summary" : {
+      "Total" : {
+         "branch" : {
+            "covered" : 158,
+            "error" : 42,
+            "percentage" : 79,
+            "total" : 200,
+            "uncoverable" : 0
+         },
+         "condition" : {
+            "covered" : 83,
+            "error" : 37,
+            "percentage" : 69.1666666666667,
+            "total" : 120,
+            "uncoverable" : 0
+         },
+         "statement" : {
+            "covered" : 413,
+            "error" : 30,
+            "percentage" : 93.2279909706546,
+            "total" : 443
+         },
+         "subroutine" : {
+            "covered" : 48,
+            "error" : 1,
+            "percentage" : 97.9591836734694,
+            "total" : 49
+         },
+         "total" : {
+            "covered" : 702,
+            "error" : 110,
+            "percentage" : 86.4532019704433,
+            "total" : 812,
+            "uncoverable" : 0
+         }
+      },
+      "bin/dmarc-check-mail.pl" : {
+         "branch" : {
+            "covered" : 36,
+            "error" : 12,
+            "percentage" : 75,
+            "total" : 48,
+            "uncoverable" : 0
+         },
+         "condition" : {
+            "covered" : 16,
+            "error" : 8,
+            "percentage" : 66.6666666666667,
+            "total" : 24,
+            "uncoverable" : 0
+         },
+         "statement" : {
+            "covered" : 87,
+            "error" : 16,
+            "percentage" : 84.4660194174757,
+            "total" : 103
+         },
+         "subroutine" : {
+            "covered" : 14,
+            "error" : 1,
+            "percentage" : 93.3333333333333,
+            "total" : 15
+         },
+         "total" : {
+            "covered" : 153,
+            "error" : 37,
+            "percentage" : 80.5263157894737,
+            "total" : 190,
+            "uncoverable" : 0
+         }
+      },
+      "bin/dmarc-report.pl" : {
+         "branch" : {
+            "covered" : 92,
+            "error" : 24,
+            "percentage" : 79.3103448275862,
+            "total" : 116,
+            "uncoverable" : 0
+         },
+         "condition" : {
+            "covered" : 38,
+            "error" : 20,
+            "percentage" : 65.5172413793103,
+            "total" : 58,
+            "uncoverable" : 0
+         },
+         "statement" : {
+            "covered" : 216,
+            "error" : 6,
+            "percentage" : 97.2972972972973,
+            "total" : 222
+         },
+         "subroutine" : {
+            "covered" : 17,
+            "percentage" : 100,
+            "total" : 17
+         },
+         "total" : {
+            "covered" : 363,
+            "error" : 50,
+            "percentage" : 87.8934624697337,
+            "total" : 413,
+            "uncoverable" : 0
+         }
+      },
+      "bin/mail-dkim" : {
+         "branch" : {
+            "covered" : 2,
+            "error" : 0,
+            "percentage" : 100,
+            "total" : 2,
+            "uncoverable" : 0
+         },
+         "condition" : {
+            "covered" : 1,
+            "error" : 1,
+            "percentage" : 50,
+            "total" : 2,
+            "uncoverable" : 0
+         },
+         "statement" : {
+            "covered" : 24,
+            "percentage" : 100,
+            "total" : 24
+         },
+         "subroutine" : {
+            "covered" : 5,
+            "percentage" : 100,
+            "total" : 5
+         },
+         "total" : {
+            "covered" : 32,
+            "error" : 1,
+            "percentage" : 96.969696969697,
+            "total" : 33,
+            "uncoverable" : 0
+         }
+      },
+      "lib/Mail/Send/DKIM.pm" : {
+         "branch" : {
+            "covered" : 28,
+            "error" : 6,
+            "percentage" : 82.3529411764706,
+            "total" : 34,
+            "uncoverable" : 0
+         },
+         "condition" : {
+            "covered" : 28,
+            "error" : 8,
+            "percentage" : 77.7777777777778,
+            "total" : 36,
+            "uncoverable" : 0
+         },
+         "statement" : {
+            "covered" : 86,
+            "error" : 8,
+            "percentage" : 91.4893617021277,
+            "total" : 94
+         },
+         "subroutine" : {
+            "covered" : 12,
+            "percentage" : 100,
+            "total" : 12
+         },
+         "total" : {
+            "covered" : 154,
+            "error" : 22,
+            "percentage" : 87.5,
+            "total" : 176,
+            "uncoverable" : 0
+         }
+      }
+   }
+}
