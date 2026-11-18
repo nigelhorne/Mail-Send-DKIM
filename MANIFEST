@@ -16,5 +16,7 @@ t/dmarc-check-mail.t
 t/dmarc-report.t
 t/dmarc-weekly.t
 t/mail-dkim.t
+t/pod-code.t
 t/pod-coverage.t
+t/pod-links.t
 t/readme.t

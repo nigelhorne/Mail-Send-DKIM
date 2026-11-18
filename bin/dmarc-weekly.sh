@@ -1,40 +1,192 @@
 #!/bin/sh
 #
-# Weekly DMARC check, meant to be run from cron.
-#
-# Silent when every message came from the expected sender; when dmarc-report.pl
-# exits non-zero it sends the full output to MAIL_TO, and always records the
-# failure in LOG so the same information survives a week in which no mail
-# transport was available.
-#
-# The reports it summarised are then moved into $HOME/dmarc-archive, so that
-# next week's run reports that week's mail rather than repeating last week's.
-# That is outside the reports directory on purpose: the directory is a downloads
-# folder, and an archive inside it is just more clutter there.
-# Only the files dmarc-report.pl says it read are moved: a downloads directory
-# also holds installers and data sets, and one of them is 13 GB.
-#
-# Cron runs with almost no environment, so a perl that has XML::LibXML is
-# named explicitly instead of being found on PATH: a system perl often does not
-# have it, and a job that fails for that reason would be silent.  Set PERL to
-# choose your own, and DMARC_EXPECTED to the host that sends these domains.
-#
-# The alert goes out through mail-dkim, which sits next to this script, so it
-# is signed for whatever DKIM_DOMAINS and DKIM_KEYDIR the site already uses and
-# authenticates like the rest of its mail; MAIL_FROM is the address it is sent
-# as and defaults to MAIL_TO.  If that signer is missing or cannot send, the
-# message falls through to mail, mailx or sendmail.  Set MAIL_COMMAND to
-# anything that reads a message with headers on stdin to choose the transport
-# yourself, e.g.
-#	MAIL_COMMAND='ssh mail.example.com /usr/sbin/sendmail -t'
+# The POD below is this programme's description: perldoc dmarc-weekly.sh.  It is
+# held in a here-document that the shell discards, because POD lines are not
+# comments and a shell would try to run them.
+: <<'POD'
+=pod
+
+=head1 NAME
+
+dmarc-weekly.sh - run the DMARC check weekly and mail what needs looking at
+
+=head1 SYNOPSIS
+
+	dmarc-weekly.sh
+
+	dmarc-weekly.sh --crontab
+
+=head1 DESCRIPTION
+
+Meant to be run from cron.  It runs C<dmarc-report.pl> over C<DMARC_DIR> and is
+silent when every message came from the expected sender.  When the report exits
+non-zero it sends the full output to C<MAIL_TO>, and appends a timestamped copy
+to C<DMARC_LOG> as well, so that a week in which no transport was available
+still leaves the information behind.
+
+The reports that were summarised are then moved into C<DMARC_ARCHIVE_DIR>, so
+that the next run reports that week's mail rather than repeating this one's. 
+The archive is deliberately outside the reports directory, which is a downloads
+folder; only the files the report says it read are moved, because such a folder
+also holds things that are not reports.
+
+The alert goes out through the first transport that works: C<MAIL_COMMAND>, then
+the site's signer, then mail(1), mailx(1) and sendmail(1).
+
+A week with no reports at all is not a failure: the report says so, and this
+exits 0 without mailing.
+
+=head1 OPTIONS
+
+Only the first argument is looked at; anything else is ignored.
+
+=over 4
+
+=item B<--crontab>
+
+Print a commented crontab line and exit 0, rather than installing one: the line
+depends on where these programmes landed and which perl on this machine has
+L<XML::LibXML>, and this is the one place that knows both.  The perl is written
+as an absolute path, so cron's small C<PATH> cannot find a different one.  The
+expected sender in the line is C<DMARC_EXPECTED>, or C<192.0.2.10> as a
+placeholder to replace.
+
+=back
+
+=head1 ENVIRONMENT
+
+=over 4
+
+=item C<DMARC_DIR>
+
+The directory of reports to summarise.  Default C<$HOME/Downloads>.
+
+=item C<DMARC_ARCHIVE_DIR>
+
+Where the summarised reports are moved.  Default C<$HOME/dmarc-archive>.
+
+=item C<DMARC_ARCHIVE>
+
+Set to 0 to leave the reports where they are.
+
+=item C<DMARC_EXPECTED>
+
+The one source expected to send these domains' mail, so that every other source
+is a finding.  C<dmarc-report.pl> reads it - this passes its own environment on
+- and C<--crontab> puts it in the line it prints.
+
+=item C<DMARC_LOG>
+
+The file a failure is appended to.  Default C<$HOME/dmarc-report.log>.
+
+=item C<MAIL_TO>
+
+Where the alert goes.  Default C<alerts@example.org>.
+
+=item C<MAIL_FROM>
+
+The envelope sender, which is also the header C<From:>.  Default C<MAIL_TO>.
+
+=item C<MAIL_COMMAND>
+
+A command that reads a complete message, headers included, on standard input,
+and is used before anything else, e.g.
+C<MAIL_COMMAND='ssh mail.example.com /usr/sbin/sendmail -t'>.
+
+=item C<MAIL_DKIM>
+
+The signer the alert is piped through.  Default C<mail-dkim> next to this
+script, which signs for whatever C<DKIM_DOMAINS>, C<DKIM_KEYDIR> and
+C<DKIM_SELECTOR> the site already sets, so the alert authenticates like the
+rest of its mail.  A signer that cannot send - no key, no sendmail behind it -
+falls through to mail(1), mailx(1) and sendmail(1) rather than costing the
+week's report.
+
+=item C<PERL>
+
+The perl the report is run with, when the caller names one.  Left unset, the
+first perl that can load L<XML::LibXML> is used: C<perl> on C<PATH>, then the
+perlbrew perls under C<$HOME/perl5/perlbrew/perls>, newest first, then
+F</usr/local/bin/perl>, F</usr/bin/perl> and F</opt/homebrew/bin/perl> - the
+paths are probed rather than assumed, because a cron job's C<PATH> usually
+holds only the system perl, which often cannot load the module.  When none of
+them can, plain C<perl> is used, so that the run fails with the module's own
+complaint - logged and mailed - rather than the week going unchecked without a
+word.
+
+=item C<DRY_RUN>
+
+Set to 1 to rehearse: print what would be mailed and how many reports would be
+archived, and move nothing.  The finding is still appended to C<DMARC_LOG>;
+only the moving is held back.
+
+=item C<TMPDIR>
+
+Where the per-run list of reports read is kept.  Default C</tmp>.
+
+=back
+
+=head1 EXIT STATUS
+
+C<0> when the week was clean, when there were no reports to summarise, and for
+C<--crontab>.  Otherwise the exit status of C<dmarc-report.pl>, passed through
+unchanged: it is non-zero when something needed looking at.  The mail is still
+attempted and C<DMARC_LOG> is still written, and when no transport would take
+the message it is written to standard error as well, which cron keeps, but that
+does not change the status.
+
+Failing to tidy up - an archive directory that cannot be created, a report that
+cannot be moved - is reported on standard error and does not change the status
+either: the week's finding is what the status is for.
+
+=head1 SEE ALSO
+
+C<dmarc-report.pl>, which does the summarising; C<mail-dkim>, which signs the
+alert; and C<dmarc-check-mail.pl>, which tests a host's mail from outside.
+
+=cut
+
+POD
 
 set -u
 
 SELF_DIR=$(cd "$(dirname "$0")" && pwd)
 REPORT="$SELF_DIR/dmarc-report.pl"
 
-PERL=${PERL:-$HOME/perl5/perlbrew/perls/perl-5.40.0/bin/perl}
-[ -x "$PERL" ] || PERL=perl
+# The perl the report runs with has to be one that can load XML::LibXML, which
+# the system perl a cron job's PATH finds often cannot, so the candidates are
+# tried rather than one path assumed.  A PERL named by the caller is used as it
+# stands: the caller has chosen, and a perl that turns out not to work is
+# better complained about than silently replaced.
+perl_has_libxml()
+{
+	"$1" -MXML::LibXML -e 1 > /dev/null 2>&1
+}
+
+find_perl()
+{
+	{
+		command -v perl 2>/dev/null
+		# perlbrew keeps a directory per installed perl, and the newest is
+		# the one most likely to have the module.
+		ls -1d "$HOME"/perl5/perlbrew/perls/*/bin/perl 2>/dev/null | sort -r
+		printf '%s\n' /usr/local/bin/perl /usr/bin/perl /opt/homebrew/bin/perl
+	} | while IFS= read -r candidate; do
+		[ -x "$candidate" ] || continue
+		if perl_has_libxml "$candidate"; then
+			printf '%s\n' "$candidate"
+			break
+		fi
+	done
+}
+
+if [ -z "${PERL:-}" ]; then
+	PERL=$(find_perl)
+fi
+# Nothing on this machine has the module: plain perl is still tried, so the run
+# fails with the module's own complaint - logged and mailed - rather than the
+# week going unchecked without a word.
+[ -n "${PERL:-}" ] || PERL=perl
 
 REPORTS=${DMARC_DIR:-$HOME/Downloads}
 ARCHIVE=${DMARC_ARCHIVE_DIR:-$HOME/dmarc-archive}
@@ -149,7 +301,10 @@ $output"
 
 if [ "${DRY_RUN:-0}" = 1 ]; then
 	printf 'would mail %s\n%s\n' "$MAIL_TO" "$message"
-	printf 'would archive %s report(s) to %s\n' "$(grep -c . "$LIST" 2>/dev/null || echo 0)" "$ARCHIVE"
+	# grep -c exits 1 when it counts nothing, so the count is kept before its
+	# status is allowed to matter; an unreadable list means nothing to move.
+	count=$(grep -c . "$LIST" 2>/dev/null) || count=0
+	printf 'would archive %s report(s) to %s\n' "$count" "$ARCHIVE"
 	exit "$status"
 fi
 

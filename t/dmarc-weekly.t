@@ -123,6 +123,12 @@ sub run_wrapper
 		%env,
 	);
 
+	# A setting given as undef is left out of the environment altogether, which
+	# is how a subtest asks the wrapper to choose for itself.
+	foreach my $name (grep { !defined($set{$_}) } keys %set) {
+		delete($set{$name});
+	}
+
 	my $pid = fork();
 	die "fork: $!" unless(defined($pid));
 
@@ -133,7 +139,7 @@ sub run_wrapper
 		# Not inherited from whatever ran prove, so a variable that would
 		# change the outcome cannot leak in from the developer's shell.
 		foreach my $name (qw(DMARC_ARCHIVE_DIR DMARC_ARCHIVE DRY_RUN
-				DKIM_DOMAINS DKIM_KEYDIR DKIM_SELECTOR SENDMAIL MAIL_FROM MAIL_DKIM)) {
+				DKIM_DOMAINS DKIM_KEYDIR DKIM_SELECTOR SENDMAIL MAIL_FROM MAIL_DKIM PERL)) {
 			delete($ENV{$name}) unless(exists($set{$name}));
 		}
 		open(STDOUT, '>', $out) or exit 127;
@@ -144,6 +150,35 @@ sub run_wrapper
 	waitpid($pid, 0);
 
 	return ($? >> 8, slurp($out), slurp($err), (-e $mail ? slurp($mail) : ''));
+}
+
+# Whether a perl can load the module the report needs, without its complaint on
+# the terminal when it cannot.
+sub can_load_libxml
+{
+	my $perl = shift;
+
+	local *STDERR;
+	open(STDERR, '>', File::Spec->devnull()) or die "Cannot redirect stderr: $!";
+
+	return system($perl, '-MXML::LibXML', '-e', '1') == 0;
+}
+
+# A perl on this machine that can load it, looked for the way the wrapper looks
+# for one: the interpreter running the tests first, then the others.  undef when
+# there is none, so that a subtest about the choice skips rather than failing on
+# a machine that could not run the report anyway.
+sub perl_with_libxml
+{
+	my @candidates = ($^X, glob("$ENV{'HOME'}/perl5/perlbrew/perls/*/bin/perl"),
+		'/usr/local/bin/perl', '/usr/bin/perl', '/opt/homebrew/bin/perl');
+
+	foreach my $perl (@candidates) {
+		next unless(defined($perl) && -x $perl);
+		return $perl if(can_load_libxml($perl));
+	}
+
+	return;
 }
 
 sub reports_dir
@@ -294,6 +329,30 @@ subtest 'a crontab line can be printed, and nothing is run' => sub {
 	# Printing must not be a rehearsal run of the check itself.
 	ok(!-e File::Spec->catfile($home, 'dmarc-archive'), 'no archive directory was made');
 	ok(!-e File::Spec->catfile($home, 'dmarc-report.log'), 'and nothing was logged');
+};
+
+subtest 'the crontab line names a perl that can load XML::LibXML' => sub {
+	plan skip_all => 'no perl on this machine can load XML::LibXML'
+		unless(defined(perl_with_libxml()));
+
+	# PERL left out of the environment, so the wrapper has to find one itself:
+	# the path it used to assume is somebody else's.
+	my $home = fresh_home('probed-perl');
+	my ($status, $out, $err, $mail) = run_wrapper(['--crontab'],
+		HOME => $home, PERL => undef, DMARC_EXPECTED => '192.0.2.10',
+		MAIL_TO => 'alerts@example.org');
+
+	is($status, 0, 'it exited 0');
+	is($err, '', 'nothing on stderr');
+	is($mail, '', 'nothing was mailed');
+
+	my ($named) = $out =~ /\bPERL=(\S+)/;
+	ok(defined($named), 'the line names a perl');
+	return unless(defined($named));
+
+	like($named, qr{\A/}, 'by an absolute path, because cron has no useful PATH');
+	ok(can_load_libxml($named), "$named is one that can load XML::LibXML");
+	ok(!-e File::Spec->catfile($home, 'dmarc-report.log'), 'and nothing was run');
 };
 
 subtest 'the alert is signed by mail-dkim when it is there' => sub {

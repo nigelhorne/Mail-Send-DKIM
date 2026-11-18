@@ -92,9 +92,22 @@ C<$DKIM_KEYDIR/$DKIM_SELECTOR.private>.  When it is unset the only
 F<*.private> file in B<DKIM_KEYDIR> is used and its name is the selector, so a
 host with one key needs no configuration beyond B<DKIM_DOMAINS>.
 
+=item B<DKIM_KEYFILE>
+
+The key file itself, used as it stands, for a key that is not kept under
+B<DKIM_KEYDIR> in the naming convention above - a host given one key to try,
+for instance.  When B<DKIM_SELECTOR> is not set the selector is the name of
+this file, without the F<.private>, so setting this is an alternative to
+setting both of those rather than a third thing to set with them.
+
 =item B<SENDMAIL>
 
 The program to hand the message to.  Defaults to F</usr/sbin/sendmail>.
+
+=item B<HOME>
+
+The home directory the default B<DKIM_KEYDIR> of F<~/dkim> is taken from.  When
+it is unset the home directory in the password file entry is used instead.
 
 =back
 

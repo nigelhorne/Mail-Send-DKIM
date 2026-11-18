@@ -298,10 +298,10 @@ the command line programme needs no configuration of its own.
 =head1 PROGRAMMES
 
 The distribution is named after this module and installs four programmes with
-it.  Two of them, C<mail-dkim> and C<dmarc-report>, have POD of their own, which
-C<perldoc mail-dkim> and C<perldoc dmarc-report> show once the distribution is
-installed; the other two are shell and command line programmes documented by the
-comments that open them and by their own C<--help>.
+it, each with a page of its own: C<perldoc bin/mail-dkim>,
+C<perldoc bin/dmarc-report.pl>, C<perldoc bin/dmarc-check-mail.pl> and
+C<perldoc bin/dmarc-weekly.sh> in a checkout, and the same pages as manual
+pages once installed.
 
 =over 4
 
@@ -325,7 +325,7 @@ when anything needs looking at.  Its page has the options.
 
 The cron wrapper around it: silent when the week is clean, a mail with the full
 output when it is not, and the reports moved aside to an archive afterwards.
-C<--dry-run> rehearses a run and C<--crontab> prints the line to paste into a
+C<DRY_RUN=1> rehearses a run and C<--crontab> prints the line to paste into a
 crontab; see L</A CRONTAB ENTRY> below.
 
 =item L<dmarc-check-mail.pl|https://github.com/nigelhorne/Mail-Send-DKIM/blob/master/bin/dmarc-check-mail.pl>
@@ -361,7 +361,8 @@ finding, and the run stops with a usage error without it, since guessing would
 excuse every sender.  C<MAIL_TO> is where a week that needs looking at is
 mailed, and is also the address the alert is sent as unless C<MAIL_FROM> says
 otherwise.  C<PERL> has to be an absolute path to a perl that has
-C<XML::LibXML>, as cron's C<PATH> usually holds only the system one.
+C<XML::LibXML>, as cron's C<PATH> usually holds only the system one; F<--crontab>
+fills it in with the first perl on the machine that can load the module.
 C<DMARC_DIR> and C<DMARC_ARCHIVE_DIR> are left out of the line because they
 default to C<~/Downloads> and C<~/dmarc-archive>.
 

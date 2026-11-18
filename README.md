@@ -112,10 +112,10 @@ the command line programme needs no configuration of its own.
 ## Programmes
 
 The distribution is named after this module and installs four programmes with
-it.  Two of them, `mail-dkim` and `dmarc-report`, have POD of their own, which
-`perldoc mail-dkim` and `perldoc dmarc-report` show once the distribution is
-installed; the other two are shell and command line programmes documented by the
-comments that open them and by their own `--help`.
+it, each with a page of its own: `perldoc bin/mail-dkim`,
+`perldoc bin/dmarc-report.pl`, `perldoc bin/dmarc-check-mail.pl` and
+`perldoc bin/dmarc-weekly.sh` in a checkout, and the same pages as manual
+pages once installed.
 
 - [mail-dkim](https://github.com/nigelhorne/Mail-Send-DKIM/blob/master/bin/mail-dkim)
 
@@ -137,7 +137,7 @@ comments that open them and by their own `--help`.
 
     The cron wrapper around it: silent when the week is clean, a mail with the full
     output when it is not, and the reports moved aside to an archive afterwards.
-    `--dry-run` rehearses a run and `--crontab` prints the line to paste into a
+    `DRY_RUN=1` rehearses a run and `--crontab` prints the line to paste into a
     crontab; see ["A CRONTAB ENTRY"](#a-crontab-entry) below.
 
 - [dmarc-check-mail.pl](https://github.com/nigelhorne/Mail-Send-DKIM/blob/master/bin/dmarc-check-mail.pl)
@@ -173,7 +173,8 @@ finding, and the run stops with a usage error without it, since guessing would
 excuse every sender.  `MAIL_TO` is where a week that needs looking at is
 mailed, and is also the address the alert is sent as unless `MAIL_FROM` says
 otherwise.  `PERL` has to be an absolute path to a perl that has
-`XML::LibXML`, as cron's `PATH` usually holds only the system one.
+`XML::LibXML`, as cron's `PATH` usually holds only the system one; `--crontab`
+fills it in with the first perl on the machine that can load the module.
 `DMARC_DIR` and `DMARC_ARCHIVE_DIR` are left out of the line because they
 default to `~/Downloads` and `~/dmarc-archive`.
 

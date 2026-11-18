@@ -553,6 +553,27 @@ Print this documentation.
 
 =back
 
+=head1 ENVIRONMENT
+
+=over 4
+
+=item C<DMARC_DIR>
+
+The directory of reports, when C<--dir> is not given.  Default
+C<$HOME/Downloads>.
+
+=item C<DMARC_EXPECTED>
+
+The hosts allowed to send as these domains, when C<--expected> is not given:
+addresses separated by commas or spaces.  With neither this nor
+C<--expected>, the programme stops rather than guess which host is meant.
+
+=item C<HOME>
+
+Where the default directory of reports is: C<$HOME/Downloads>.
+
+=back
+
 =head1 WEEKLY CHECK
 
 C<dmarc-weekly.sh> is the cron wrapper: silent when the run is clean - every
@@ -575,9 +596,12 @@ setting is for.  C<DMARC_DIR> and C<DMARC_ARCHIVE_DIR> are left out of the line
 because they have defaults - C<~/Downloads> and C<~/dmarc-archive> - and only
 need naming when the reports or the archive live somewhere else.
 
-It puts C<$HOME/perl5/perlbrew/perls/perl-5.40.0/bin/perl> first for C<PERL>,
-falling back to C<perl>, because cron's C<PATH> often holds only a system perl
-without C<XML::LibXML>; set C<PERL> to choose another.  The expected sender
+It probes for the perl it puts in C<PERL> rather than assuming a path for it:
+C<perl> on C<PATH> first, then the perlbrew perls under C<$HOME>, newest first,
+taking the first that can load C<XML::LibXML>, because cron's C<PATH> often
+holds only a system perl without the module, and a path guessed from one
+machine's layout is a guess about everybody's; set C<PERL> to choose another.
+The expected sender
 comes from C<DMARC_EXPECTED>, which the crontab has to provide.  Failures are
 always appended to C<~/dmarc-report.log>.
 

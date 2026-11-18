@@ -218,4 +218,114 @@ subtest 'a key that cannot be read is reported as such' => sub {
 	like($err, qr/Cannot read \Q$unreadable\E/, 'naming the file it could not read');
 };
 
+# A sendmail that records what it was given and then leaves with the status it
+# is told to, so that a transport that reports a failure can be told apart from
+# one that is not there at all.
+sub stub_sendmail
+{
+	my ($name, $exit) = @_;
+
+	my $path = File::Spec->catfile($TMP, $name);
+	my $capture = File::Spec->catfile($TMP, "$name.capture");
+
+	open(my $fh, '>', $path) or BAIL_OUT("Cannot write $path: $!");
+	print $fh <<"SENDMAIL";
+#!/bin/sh
+cat > "$capture"
+exit $exit
+SENDMAIL
+	close($fh);
+	chmod(0755, $path) or BAIL_OUT("Cannot make $path executable: $!");
+
+	return ($path, $capture);
+}
+
+subtest 'a --save file that cannot be written fails, and nothing is sent' => sub {
+	my ($sendmail, $capture) = stub_sendmail('sendmail-idle', 0);
+	my $nowhere = File::Spec->catfile($TMP, 'not-a-directory', 'message.txt');
+
+	# No --dry-run, so a run that got past the write would hand the message to
+	# sendmail: that nothing was handed over is the point of the subtest.
+	my ($status, $out, $err) = run_script($HOME,
+		'--plain', '--save' => $nowhere, '--sendmail' => $sendmail,
+		'--from' => 'alerts@example.org', '--to' => 'webmaster@example.org');
+
+	is($status, 1, 'it exits 1: nothing was sent');
+	is($out, '', 'and printed no message');
+	like($err, qr/Cannot write \Q$nowhere\E/, 'naming the file it could not write');
+	ok(!-e $capture, 'sendmail was never given the message');
+};
+
+subtest 'a sendmail that cannot be run fails, and names it' => sub {
+	my $missing = File::Spec->catfile($TMP, 'not-a-sendmail');
+
+	my ($status, $out, $err) = run_script($HOME,
+		'--plain', '--sendmail' => $missing,
+		'--from' => 'alerts@example.org', '--to' => 'webmaster@example.org');
+
+	is($status, 1, 'it exits 1');
+	is($out, '', 'so it did not claim the message was sent');
+	like($err, qr/Cannot run \Q$missing\E/, 'naming the sendmail it could not run');
+};
+
+subtest 'a sendmail that reports a failure fails, having seen the message' => sub {
+	my ($sendmail, $capture) = stub_sendmail('sendmail-fails', 75);
+
+	my ($status, $out, $err) = run_script($HOME,
+		'--plain', '--sendmail' => $sendmail,
+		'--from' => 'alerts@example.org', '--to' => 'webmaster@example.org');
+
+	is($status, 1, 'it exits 1 rather than passing 75 on');
+	is($out, '', 'and does not print it as sent');
+	like($err, qr/sendmail reported a failure/, 'it said sendmail failed');
+	like(slurp($capture), qr/^To: webmaster\@example\.org$/m,
+		'and sendmail had been given the message itself');
+};
+
+subtest 'sendmail\'s own 2 is not passed off as a usage error' => sub {
+	# 2 is the status for options that cannot be used; a transport that fails
+	# with it must still be told apart from that.
+	my ($sendmail, $capture) = stub_sendmail('sendmail-exit2', 2);
+
+	my ($status, $out, $err) = run_script($HOME,
+		'--plain', '--sendmail' => $sendmail,
+		'--from' => 'alerts@example.org', '--to' => 'webmaster@example.org');
+
+	is($status, 1, 'it exits 1, not 2');
+	like($err, qr/sendmail reported a failure/, 'and says what failed');
+};
+
+subtest 'options that cannot be used are refused, and nothing is signed' => sub {
+	# The exit status the POD promises for these: 2.  Each is run against a
+	# HOME that holds a key, so a run that got as far as signing would succeed
+	# and exit 0 - refusing means the options were checked first.
+	# The third thing is what stderr should hold: Getopt::Long names an unknown
+	# option itself, and the address checks are silent.
+	my @refused = (
+		['an unknown option', ['--not-an-option'], qr/Unknown option: not-an-option/],
+		['no --to', ['--to' => '', '--from' => 'alerts@example.org']],
+		['no --from', ['--to' => 'webmaster@example.org', '--from' => '']],
+		['a --to holding a newline, as a header injection would',
+			['--to' => "webmaster\@example.org\nBcc: someone\@example.net", '--from' => 'alerts@example.org']],
+		['a --to holding a space', ['--to' => 'web master@example.org', '--from' => 'alerts@example.org']],
+		['a --from holding a space', ['--to' => 'webmaster@example.org', '--from' => 'alerts @example.org']],
+		['a --from beginning with a dash', ['--to' => 'webmaster@example.org', '--from' => '-lead@example.org']],
+		['a --to beginning with a dash', ['--to' => '-lead@example.org', '--from' => 'alerts@example.org']],
+	);
+
+	foreach my $case (@refused) {
+		my ($what, $args, $complaint) = @$case;
+		my ($status, $out, $err) = run_script($HOME, '--dry-run', @$args);
+
+		is($status, 2, "$what: exit 2");
+		like($out, qr/Usage:/, "$what: it printed the usage") or diag($out);
+		unlike($out, qr/DKIM-Signature/, "$what: nothing was signed");
+		if($complaint) {
+			like($err, $complaint, "$what: it named the option on stderr") or diag($err);
+		} else {
+			is($err, '', "$what: nothing on stderr") or diag($err);
+		}
+	}
+};
+
 done_testing();
