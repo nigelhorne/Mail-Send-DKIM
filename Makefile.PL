@@ -43,6 +43,7 @@ WriteMakefile(
 		'File::Temp' => 0,
 		'Net::DNS' => 0,
 		'Pod::Github' => 0,
+		'Test::DescribeMe' => 0,
 		'Test::Most' => 0,
 		'Time::HiRes' => 0,
 	},

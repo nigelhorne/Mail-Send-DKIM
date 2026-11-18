@@ -18,6 +18,7 @@ on 'test' => sub {
 	requires 'File::Temp';
 	requires 'Net::DNS';
 	requires 'Pod::Github';
+	requires 'Test::DescribeMe';
 	requires 'Test::Most';
 	requires 'Time::HiRes';
 };
