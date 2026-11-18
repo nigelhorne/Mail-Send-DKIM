@@ -25,7 +25,7 @@ use IO::Uncompress::Unzip qw($UnzipError);
 use POSIX qw(strftime);
 use Readonly;
 use Pod::Usage qw(pod2usage);
-use XML::LibXML;
+use XML::PP;
 
 # The hosts that are expected to send as these domains; everything else is a
 # finding.  There is no built-in address, so they come from --expected or from
@@ -98,7 +98,46 @@ sub read_report
 	# letting the XML parser complain about a CSV or a tarball.
 	die "not a DMARC report\n" unless(index($xml, '<feedback') >= 0);
 
-	return XML::LibXML->load_xml(string => $xml, no_network => 1);
+	# XML::PP is pure Perl, so it installs where XML::PP does not (Windows).
+	# It returns the root element; wrap it so that, as with a document, the root
+	# is itself something to search for.
+	my $root = XML::PP->new()->parse($xml);
+	die "not a DMARC report\n" unless(ref($root) eq 'HASH' && defined($root->{'name'}));
+
+	return { 'children' => [ $root ] };
+}
+
+# Every element below $node, in document order, with the given name.  The
+# namespace prefix is not part of the name XML::PP gives, so this matches on
+# the local name, as the reports' differing prefixes require.
+sub descendants
+{
+	my ($node, $name) = @_;
+
+	my @found;
+	foreach my $child (@{$node->{'children'} || []}) {
+		next unless(defined($child->{'name'}));
+		push @found, $child if($child->{'name'} eq $name);
+		push @found, descendants($child, $name);
+	}
+
+	return @found;
+}
+
+# Only the direct children with the given name.
+sub children_named
+{
+	my ($node, $name) = @_;
+
+	return grep { defined($_->{'name'}) && $_->{'name'} eq $name } @{$node->{'children'} || []};
+}
+
+# All the text under a node, as textContent gave it.
+sub text_content
+{
+	my $node = shift;
+
+	return join('', map { defined($_->{'name'}) ? text_content($_) : ($_->{'text'} // '') } @{$node->{'children'} || []});
 }
 
 sub read_gzipped_xml
@@ -155,8 +194,8 @@ sub text_in
 
 	return '' unless($node);
 
-	foreach my $found ($node->findnodes(".//*[local-name()='$name']")) {
-		my $text = $found->textContent;
+	foreach my $found (descendants($node, $name)) {
+		my $text = text_content($found);
 		$text =~ s/\A\s+//;
 		$text =~ s/\s+\z//;
 		return $text if(length($text));
@@ -200,11 +239,12 @@ foreach my $path (@files) {
 	$reports_read++;
 	push @read_files, File::Spec->rel2abs($path);
 
-	my ($meta) = $doc->findnodes("//*[local-name()='report_metadata']");
-	my ($policy) = $doc->findnodes("//*[local-name()='policy_published']");
+	my ($meta) = descendants($doc, 'report_metadata');
+	my ($policy) = descendants($doc, 'policy_published');
 
-	my $begin = text_in($meta && $meta->findnodes(".//*[local-name()='date_range']") ? ($meta->findnodes(".//*[local-name()='date_range']"))[0] : undef, 'begin');
-	my $end = text_in($meta && $meta->findnodes(".//*[local-name()='date_range']") ? ($meta->findnodes(".//*[local-name()='date_range']"))[0] : undef, 'end');
+	my ($date_range) = $meta ? descendants($meta, 'date_range') : ();
+	my $begin = text_in($date_range, 'begin');
+	my $end = text_in($date_range, 'end');
 
 	print '=' x 78, "\n";
 	print basename($path), "\n";
@@ -216,15 +256,15 @@ foreach my $path (@files) {
 
 	my $reported_domain = text_in($policy, 'domain');
 
-	my @records = $doc->findnodes("//*[local-name()='record']");
+	my @records = descendants($doc, 'record');
 	if(!@records) {
 		print "  (no records in this report)\n";
 		next;
 	}
 
 	foreach my $record (@records) {
-		my ($row) = $record->findnodes(".//*[local-name()='row']");
-		my ($evaluated) = $record->findnodes(".//*[local-name()='policy_evaluated']");
+		my ($row) = descendants($record, 'row');
+		my ($evaluated) = descendants($record, 'policy_evaluated');
 
 		my $ip = text_in($row, 'source_ip');
 		my $count = text_in($row, 'count') || 0;
@@ -236,12 +276,12 @@ foreach my $path (@files) {
 		# The addresses actually seen, which is what says whether a message
 		# carried a signature at all rather than merely failing its check.
 		my (@dkim_auth, @spf_auth);
-		foreach my $results ($record->findnodes(".//*[local-name()='auth_results']")) {
-			foreach my $dkim ($results->findnodes("*[local-name()='dkim']")) {
+		foreach my $results (descendants($record, 'auth_results')) {
+			foreach my $dkim (children_named($results, 'dkim')) {
 				push @dkim_auth, sprintf('%s/%s=%s',
 					text_in($dkim, 'domain'), (text_in($dkim, 'selector') || '-'), text_in($dkim, 'result'));
 			}
-			foreach my $spf ($results->findnodes("*[local-name()='spf']")) {
+			foreach my $spf (children_named($results, 'spf')) {
 				push @spf_auth, sprintf('%s=%s', text_in($spf, 'domain'), text_in($spf, 'result'));
 			}
 		}
@@ -598,7 +638,7 @@ need naming when the reports or the archive live somewhere else.
 
 It probes for the perl it puts in C<PERL> rather than assuming a path for it:
 C<perl> on C<PATH> first, then the perlbrew perls under C<$HOME>, newest first,
-taking the first that can load C<XML::LibXML>, because cron's C<PATH> often
+taking the first that can load C<XML::PP>, because cron's C<PATH> often
 holds only a system perl without the module, and a path guessed from one
 machine's layout is a guess about everybody's; set C<PERL> to choose another.
 The expected sender
@@ -795,7 +835,7 @@ The title in that output comes from C<.pod2github-header.md>, named by
 C<.pod2github.yml>: the generator shifts the POD headings down a level, which
 would otherwise leave the README with no H1 at all.
 
-Requires C<Test::Most>, C<XML::LibXML>, C<IO::Compress::{Gzip,Zip}>,
+Requires C<Test::Most>, C<XML::PP>, C<IO::Compress::{Gzip,Zip}>,
 C<IO::Uncompress::{Gunzip,Unzip}>, C<Readonly>, C<Time::HiRes>, C<Mail::DKIM> and
 C<Net::DNS>.
 

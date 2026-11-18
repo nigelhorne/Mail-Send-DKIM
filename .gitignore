@@ -9,6 +9,7 @@
 
 # Devel::Cover
 cover_db/
+cover_html/
 
 # Devel::NYTProf
 nytprof.out
@@ -33,6 +34,8 @@ inc/
 /MANIFEST.bak
 /pm_to_blib
 /*.zip
+*.swp
+.DS_Store
 
 # Carton/Carmel
 /local/
@@ -40,8 +43,12 @@ inc/
 # cpanfile.snapshot should generally be ignored for library code, otherwise included
 # cpanfile.snapshot
 
-# Key material, captured messages and logs have no place in the repository
-*.private
-*.key
-*.eml
-*.log
+# Don't stash the output files
+t/tmp_*.t
+
+schemas/
+\.claude
+CLAUDE.md
+
+# make dist / disttest
+/Mail-Send-DKIM-*

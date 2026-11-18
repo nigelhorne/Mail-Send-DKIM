@@ -10,7 +10,7 @@ requires 'Mail::DKIM';
 requires 'Object::Configure';
 requires 'Params::Get';
 requires 'Readonly';
-requires 'XML::LibXML';
+requires 'XML::PP';
 
 on 'configure' => sub {
 	requires 'ExtUtils::MakeMaker', '6.64';   # Minimum version for TEST_REQUIRES

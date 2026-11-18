@@ -154,28 +154,28 @@ sub run_wrapper
 
 # Whether a perl can load the module the report needs, without its complaint on
 # the terminal when it cannot.
-sub can_load_libxml
+sub can_load_xmlpp
 {
 	my $perl = shift;
 
 	local *STDERR;
 	open(STDERR, '>', File::Spec->devnull()) or die "Cannot redirect stderr: $!";
 
-	return system($perl, '-MXML::LibXML', '-e', '1') == 0;
+	return system($perl, '-MXML::PP', '-e', '1') == 0;
 }
 
 # A perl on this machine that can load it, looked for the way the wrapper looks
 # for one: the interpreter running the tests first, then the others.  undef when
 # there is none, so that a subtest about the choice skips rather than failing on
 # a machine that could not run the report anyway.
-sub perl_with_libxml
+sub perl_with_xmlpp
 {
 	my @candidates = ($^X, glob("$ENV{'HOME'}/perl5/perlbrew/perls/*/bin/perl"),
 		'/usr/local/bin/perl', '/usr/bin/perl', '/opt/homebrew/bin/perl');
 
 	foreach my $perl (@candidates) {
 		next unless(defined($perl) && -x $perl);
-		return $perl if(can_load_libxml($perl));
+		return $perl if(can_load_xmlpp($perl));
 	}
 
 	return;
@@ -331,9 +331,9 @@ subtest 'a crontab line can be printed, and nothing is run' => sub {
 	ok(!-e File::Spec->catfile($home, 'dmarc-report.log'), 'and nothing was logged');
 };
 
-subtest 'the crontab line names a perl that can load XML::LibXML' => sub {
-	plan skip_all => 'no perl on this machine can load XML::LibXML'
-		unless(defined(perl_with_libxml()));
+subtest 'the crontab line names a perl that can load XML::PP' => sub {
+	plan skip_all => 'no perl on this machine can load XML::PP'
+		unless(defined(perl_with_xmlpp()));
 
 	# PERL left out of the environment, so the wrapper has to find one itself:
 	# the path it used to assume is somebody else's.
@@ -351,7 +351,7 @@ subtest 'the crontab line names a perl that can load XML::LibXML' => sub {
 	return unless(defined($named));
 
 	like($named, qr{\A/}, 'by an absolute path, because cron has no useful PATH');
-	ok(can_load_libxml($named), "$named is one that can load XML::LibXML");
+	ok(can_load_xmlpp($named), "$named is one that can load XML::PP");
 	ok(!-e File::Spec->catfile($home, 'dmarc-report.log'), 'and nothing was run');
 };
 

@@ -46,7 +46,7 @@ Only the first argument is looked at; anything else is ignored.
 
 Print a commented crontab line and exit 0, rather than installing one: the line
 depends on where these programmes landed and which perl on this machine has
-L<XML::LibXML>, and this is the one place that knows both.  The perl is written
+L<XML::PP>, and this is the one place that knows both.  The perl is written
 as an absolute path, so cron's small C<PATH> cannot find a different one.  The
 expected sender in the line is C<DMARC_EXPECTED>, or C<192.0.2.10> as a
 placeholder to replace.
@@ -105,7 +105,7 @@ week's report.
 =item C<PERL>
 
 The perl the report is run with, when the caller names one.  Left unset, the
-first perl that can load L<XML::LibXML> is used: C<perl> on C<PATH>, then the
+first perl that can load L<XML::PP> is used: C<perl> on C<PATH>, then the
 perlbrew perls under C<$HOME/perl5/perlbrew/perls>, newest first, then
 F</usr/local/bin/perl>, F</usr/bin/perl> and F</opt/homebrew/bin/perl> - the
 paths are probed rather than assumed, because a cron job's C<PATH> usually
@@ -153,14 +153,14 @@ set -u
 SELF_DIR=$(cd "$(dirname "$0")" && pwd)
 REPORT="$SELF_DIR/dmarc-report.pl"
 
-# The perl the report runs with has to be one that can load XML::LibXML, which
+# The perl the report runs with has to be one that can load XML::PP, which
 # the system perl a cron job's PATH finds often cannot, so the candidates are
 # tried rather than one path assumed.  A PERL named by the caller is used as it
 # stands: the caller has chosen, and a perl that turns out not to work is
 # better complained about than silently replaced.
-perl_has_libxml()
+perl_has_xmlpp()
 {
-	"$1" -MXML::LibXML -e 1 > /dev/null 2>&1
+	"$1" -MXML::PP -e 1 > /dev/null 2>&1
 }
 
 find_perl()
@@ -173,7 +173,7 @@ find_perl()
 		printf '%s\n' /usr/local/bin/perl /usr/bin/perl /opt/homebrew/bin/perl
 	} | while IFS= read -r candidate; do
 		[ -x "$candidate" ] || continue
-		if perl_has_libxml "$candidate"; then
+		if perl_has_xmlpp "$candidate"; then
 			printf '%s\n' "$candidate"
 			break
 		fi
@@ -200,7 +200,7 @@ FROM=${MAIL_FROM:-$MAIL_TO}
 MAIL_DKIM=${MAIL_DKIM:-$SELF_DIR/mail-dkim}
 
 # Printing the crontab line, not installing it: what a crontab needs depends on
-# where the programmes landed and which perl has XML::LibXML on this machine,
+# where the programmes landed and which perl has XML::PP on this machine,
 # and this is the one place that knows both.
 if [ "${1:-}" = '--crontab' ]; then
 	# cron runs with a tiny PATH, so a bare 'perl' in the line would find the

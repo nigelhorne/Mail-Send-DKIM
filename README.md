@@ -179,7 +179,7 @@ finding, and the run stops with a usage error without it, since guessing would
 excuse every sender.  `MAIL_TO` is where a week that needs looking at is
 mailed, and is also the address the alert is sent as unless `MAIL_FROM` says
 otherwise.  `PERL` has to be an absolute path to a perl that has
-`XML::LibXML`, as cron's `PATH` usually holds only the system one; `--crontab`
+`XML::PP`, as cron's `PATH` usually holds only the system one; `--crontab`
 fills it in with the first perl on the machine that can load the module.
 `DMARC_DIR` and `DMARC_ARCHIVE_DIR` are left out of the line because they
 default to `~/Downloads` and `~/dmarc-archive`.

@@ -40,7 +40,7 @@ WriteMakefile(
 		'Object::Configure' => 0,
 		'Params::Get' => 0,
 		'Readonly' => 0,
-		'XML::LibXML' => 0,
+		'XML::PP' => 0,
 	}, 'TEST_REQUIRES' => {
 		'File::Temp' => 0,
 		'Net::DNS' => 0,

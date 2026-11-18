@@ -380,7 +380,7 @@ finding, and the run stops with a usage error without it, since guessing would
 excuse every sender.  C<MAIL_TO> is where a week that needs looking at is
 mailed, and is also the address the alert is sent as unless C<MAIL_FROM> says
 otherwise.  C<PERL> has to be an absolute path to a perl that has
-C<XML::LibXML>, as cron's C<PATH> usually holds only the system one; F<--crontab>
+C<XML::PP>, as cron's C<PATH> usually holds only the system one; F<--crontab>
 fills it in with the first perl on the machine that can load the module.
 C<DMARC_DIR> and C<DMARC_ARCHIVE_DIR> are left out of the line because they
 default to C<~/Downloads> and C<~/dmarc-archive>.
