@@ -42,6 +42,15 @@ Nothing here dies because a key is missing: signing either produces a signed
 message or produces nothing and says why on standard error, so a caller can
 always fall back to sending the message as it is.
 
+## Platforms
+
+Windows is not supported.  [Mail::DKIM](https://metacpan.org/pod/Mail%3A%3ADKIM) needs [Crypt::OpenSSL::RSA](https://metacpan.org/pod/Crypt%3A%3AOpenSSL%3A%3ARSA), and that
+module and its prerequisites, [Crypt::OpenSSL::Random](https://metacpan.org/pod/Crypt%3A%3AOpenSSL%3A%3ARandom) and
+[Crypt::OpenSSL::Bignum](https://metacpan.org/pod/Crypt%3A%3AOpenSSL%3A%3ABignum), do not link on Windows: Strawberry Perl's static
+OpenSSL needs the `crypt32` library, which their `Makefile.PL` files do not
+ask for.  `Makefile.PL` stops with `OS unsupported` there, rather than failing
+part-way through the install.
+
 ## Environment
 
 **DKIM\_DOMAINS**, **DKIM\_KEYDIR**, **DKIM\_SELECTOR**, **DKIM\_KEYFILE** and
@@ -143,7 +152,7 @@ be run at all.  The message is normalised to LF first, so nothing that arrived
 with CRLF - signed or passed through unsigned - carries a carriage return to
 the MTA.
 
-### **\_From\_Domain** $Message
+### **From\_Domain** $Message
 
 The domain of the address in the first `From:` header, in lower case, or
 `undef` when there is no such header.  Folded headers and display names are

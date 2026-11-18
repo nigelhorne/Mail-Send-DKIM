@@ -54,6 +54,15 @@ Nothing here dies because a key is missing: signing either produces a signed
 message or produces nothing and says why on standard error, so a caller can
 always fall back to sending the message as it is.
 
+=head1 PLATFORMS
+
+Windows is not supported.  L<Mail::DKIM> needs L<Crypt::OpenSSL::RSA>, and that
+module and its prerequisites, L<Crypt::OpenSSL::Random> and
+L<Crypt::OpenSSL::Bignum>, do not link on Windows: Strawberry Perl's static
+OpenSSL needs the C<crypt32> library, which their F<Makefile.PL> files do not
+ask for.  F<Makefile.PL> stops with C<OS unsupported> there, rather than failing
+part-way through the install.
+
 =head1 ENVIRONMENT
 
 B<DKIM_DOMAINS>, B<DKIM_KEYDIR>, B<DKIM_SELECTOR>, B<DKIM_KEYFILE> and

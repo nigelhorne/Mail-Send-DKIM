@@ -5,6 +5,13 @@ use warnings;
 
 use ExtUtils::MakeMaker;
 
+# Mail::DKIM needs Crypt::OpenSSL::RSA, and that and its own prerequisites
+# (Crypt::OpenSSL::Random and ::Bignum) do not link on Windows: Strawberry
+# Perl's static libcrypto wants crypt32, which their Makefile.PLs leave out.
+# Say so here, in the form CPAN Testers reads as "not applicable" rather than
+# as a failure, instead of letting the install die part-way through.
+die 'OS unsupported' if($^O eq 'MSWin32');
+
 my $dist = {
 	COMPRESS => 'gzip -9f',	# Compress tarball using gzip
 	SUFFIX => 'gz',	# File suffix for tarball
