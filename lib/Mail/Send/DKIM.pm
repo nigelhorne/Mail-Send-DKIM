@@ -27,7 +27,7 @@ use Sub::Private { 'mode' => 'enforce' };
 use Sub::Protected;
 use Sys::Syslog ();
 
-use version; our $VERSION = version->declare('0.003.0');
+use version; our $VERSION = version->declare('0.004.0');
 
 # What the signature is made with: the shape receiving sites expect.
 Readonly my $ALGORITHM => 'rsa-sha256';
@@ -100,7 +100,7 @@ Mail::Send::DKIM - sign a message with DKIM and hand it to sendmail
 
 =head1 VERSION
 
-0.003.0
+0.004.0
 
 =head1 SYNOPSIS
 

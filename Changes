@@ -1,6 +1,6 @@
 Revision history for Mail::Send::DKIM - Sign mail with DKIM, and summarise DMARC reports
 
-0.004.0
+0.004.0	Fri Nov 20 11:52:28 AM EST 2026
 	[ Enhancements ]
 	- Added bin/dmarc-summary
 	- Added the signing_domain option to new (and DKIM_SIGNING_DOMAIN), to put
