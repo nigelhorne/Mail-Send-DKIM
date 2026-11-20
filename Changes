@@ -20,8 +20,10 @@ Revision history for Mail::Send::DKIM - Sign mail with DKIM, and summarise DMARC
 	  is protected (Sub::Protected); constants are Readonly; header parsing
 	  is done once and shared; new, sign and from_domain validate their
 	  arguments with Params::Validate::Strict.
-	- POD: EXAMPLE, API SPECIFICATION, MESSAGES, FORMAL SPECIFICATION and
-	  PSEUDOCODE sections for the public routines, and a LIMITATIONS section.
+	- POD: EXAMPLE, API SPECIFICATION, MESSAGES and PSEUDOCODE sections for
+	  the public routines; more SYNOPSIS patterns; COMMON PITFALLS, ENCODING,
+	  LIMITATIONS, FORMAL SPECIFICATION (all the Z notation, in one place)
+	  and STATE DIAGRAM sections.
 	- Tests: t/i18n.t, t/headers.t and t/locales.t (OS error strings under
 	  en_US, de_DE, ja_JP and zh_CN locales).  readme.t sets PERL_UNICODE=S
 	  because the POD now contains Z notation.

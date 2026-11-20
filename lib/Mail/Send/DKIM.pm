@@ -112,6 +112,35 @@ Mail::Send::DKIM - sign a message with DKIM and hand it to sendmail
 
 	exit($dkim->send($message, '-t', '-f', 'alerts@example.org'));
 
+More ways to use it:
+
+	# 1. Settings from the environment (DKIM_DOMAINS, DKIM_KEYDIR, ...)
+	#    This is how the mail-dkim program works.
+	my $dkim = Mail::Send::DKIM->new();
+
+	# 2. One key file that you name yourself, for a test
+	my $dkim = Mail::Send::DKIM->new(
+		domains => 'example.org example.net',
+		keyfile => '/etc/dkim/2026.private',
+	);
+
+	# 3. Sign and send, then write a line to the system log
+	my @sendmail_args = ('-t', '-f', 'alerts@example.org');
+	my $signed = $dkim->sign($message);
+	$message = $signed if(defined($signed));
+	if($dkim->send($message, @sendmail_args) == 0) {
+		$dkim->log_send($message, @sendmail_args);
+	}
+
+	# 4. Only ask whose mail it is, or which key would be used
+	my $domain = Mail::Send::DKIM::from_domain($message);
+	my $selector = $dkim->selector();
+
+	# 5. Warnings in your own words
+	my $dkim = Mail::Send::DKIM->new(
+		messages => { key_unreadable => 'No key at %{keyfile}s' },
+	);
+
 =head1 DESCRIPTION
 
 Signs a message with DKIM when its C<From:> domain is one this host signs for,
@@ -289,18 +318,6 @@ hash reference.
 An option of the wrong type is refused with the message of
 L<Params::Validate::Strict>, which names the option.  Nothing else is said.
 
-=head3 FORMAL SPECIFICATION
-
-	┌─ New ───────────────────────────────────────────────
-	│ opts? : STRING ⇸ VALUE
-	│ self! : Signer
-	├─────────────────────────────────────────────────────
-	│ self!.domains  = { lower(d) | d ∈ split(opts?.domains ∨ DKIM_DOMAINS) ∧ d ≠ "" }
-	│ self!.keydir   = opts?.keydir ∨ DKIM_KEYDIR ∨ home ⁀ "/dkim"
-	│ self!.sendmail = opts?.sendmail ∨ SENDMAIL ∨ "/usr/sbin/sendmail"
-	│ self!.selector, self!.keyfile follow the same rule, and may be absent
-	└─────────────────────────────────────────────────────
-
 =head3 PSEUDOCODE
 
 	options = get_params(args)
@@ -388,19 +405,6 @@ The signed message in the local form, or C<undef>.
 	keydir_unreadable, keys_ambiguous                           As for selector, below.
 
 Each is a warning, and the return is C<undef>.
-
-=head3 FORMAL SPECIFICATION
-
-	┌─ Sign ──────────────────────────────────────────────
-	│ ΞSigner
-	│ message? : STRING
-	│ signed!  : STRING ∪ {⊥}
-	├─────────────────────────────────────────────────────
-	│ d = fromDomain(message?)
-	│ d ∈ domains ∧ keyUsable(d) ∧ signerSucceeds(d) ⇒
-	│     signed! = signature(d, crlf(message?)) ⁀ "\n" ⁀ local(message?)
-	│ ¬(d ∈ domains ∧ keyUsable(d) ∧ signerSucceeds(d)) ⇒ signed! = ⊥
-	└─────────────────────────────────────────────────────
 
 =cut
 
@@ -520,18 +524,6 @@ Delivers the message to the local MTA and reports what the MTA said.
 A sendmail that exits before it has read the whole message does not stop the
 caller with SIGPIPE: its exit status is returned.
 
-=head3 FORMAL SPECIFICATION
-
-	┌─ Send ──────────────────────────────────────────────
-	│ Σ Signer
-	│ message? : STRING;  args? : seq STRING;  status! : ℕ
-	├─────────────────────────────────────────────────────
-	│ ¬runnable(sendmail)                      ⇒ status! = 1
-	│ runnable(sendmail) ∧ accepted(local(message?)) ⇒ status! = 0
-	│ runnable(sendmail) ∧ ¬accepted(local(message?)) ⇒
-	│     status! = exitStatus(sendmail) ∨ 1  (1 when that status would be 0)
-	└─────────────────────────────────────────────────────
-
 =head3 PSEUDOCODE
 
 	ignore SIGPIPE's default action (a handler, so sendmail does not inherit it)
@@ -613,18 +605,6 @@ Leaves a trace, in the system log, of every message that was passed on.
 	Message key        Meaning and resolution
 	syslog_failed      openlog or syslog failed: check that a syslog daemon is
 	                   running and its socket is reachable.  The return is 0.
-
-=head3 FORMAL SPECIFICATION
-
-	┌─ LogSend ───────────────────────────────────────────
-	│ message? : STRING;  args? : seq STRING;  written! : 𝔹
-	├─────────────────────────────────────────────────────
-	│ sender     = valueOf(-f, args?) ∨ firstAddress(From)
-	│ recipients = nonOptions(args?) ⁀ (headerAddresses(To, Cc, Bcc) ◁ "-t" ∈ flags(args?))
-	│ line = "sender=" ⁀ (sender ∨ "-") ⁀ " recipient=" ⁀ (join "," recipients ∨ "-")
-	│        ⁀ " subject=" ⁀ (subject ∨ "-")        (control characters made spaces)
-	│ written! = line reached syslog
-	└─────────────────────────────────────────────────────
 
 =head3 PSEUDOCODE
 
@@ -798,17 +778,6 @@ It may be called as a function or as a method.
 
 None: a message without a usable From: is not an error, the answer is C<undef>.
 
-=head3 FORMAL SPECIFICATION
-
-	┌─ FromDomain ────────────────────────────────────────
-	│ message? : STRING;  domain! : STRING ∪ {⊥}
-	├─────────────────────────────────────────────────────
-	│ first(From, headers(message?)) = ⊥ ⇒ domain! = ⊥
-	│ a = firstAddress(first(From, headers(message?)))
-	│ host(a) matches [A-Za-z0-9.-]+ ⇒ domain! = lower(host(a))
-	│ otherwise domain! = ⊥
-	└─────────────────────────────────────────────────────
-
 =cut
 
 sub from_domain
@@ -865,17 +834,6 @@ Settles which of the keys is to be used, once, in one place.
 	                    the keydir option.
 	keys_ambiguous      keydir holds no key, or more than one, and no selector
 	                    was named: add the key, or set DKIM_SELECTOR.
-
-=head3 FORMAL SPECIFICATION
-
-	┌─ Selector ──────────────────────────────────────────
-	│ ΞSigner;  selector! : STRING ∪ {⊥}
-	├─────────────────────────────────────────────────────
-	│ selector ≠ ⊥ ∧ selector ≠ ""    ⇒ selector! = selector
-	│ keyfile ≠ ⊥ ∧ name(keyfile) ≠ "" ⇒ selector! = strip(name(keyfile))
-	│ #privateKeys(keydir) = 1         ⇒ selector! = strip(the one)
-	│ otherwise                          selector! = ⊥
-	└─────────────────────────────────────────────────────
 
 =head3 PSEUDOCODE
 
@@ -985,15 +943,6 @@ Croaks if C<$key> is not a message that is defined.
 	Message key        Meaning and resolution
 	unknown_message    The key is not in the catalogue: fix the caller, or add it to messages.
 	missing_argument   A placeholder has no argument: pass it.
-
-=head3 FORMAL SPECIFICATION
-
-	┌─ I18n ──────────────────────────────────────────────
-	│ ΞSigner;  key? : STRING;  args? : STRING ⇸ VALUE;  text! : STRING
-	├─────────────────────────────────────────────────────
-	│ key? ∈ dom messages
-	│ text! = format(choose(messages(key?), args?.count, args?.variant), args?)
-	└─────────────────────────────────────────────────────
 
 =cut
 
@@ -1159,6 +1108,117 @@ installed.  A job of your own takes the same shape with F<mail-dkim> in place of
 the wrapper: C<DKIM_DOMAINS> and C<DKIM_KEYDIR> say what to sign for, and the
 arguments given to it are passed to sendmail(1) as they are.
 
+=head1 COMMON PITFALLS
+
+=over 4
+
+=item * B<sign> returns C<undef> to mean "nothing was signed"
+
+It does not die and it does not return an empty string.  Always test with
+C<defined>.  The reason is a warning on standard error, except when the
+message simply is not from one of your domains: that is normal and says
+nothing.  Keep the original message and send it if B<sign> gave you C<undef>.
+
+=item * An C<undef> option means "not given"
+
+C<< new(keydir => undef) >> is the same as leaving C<keydir> out: the
+environment variable, then the built-in default, is used.  An empty string is
+a value: C<< domains => '' >> means "sign for no domain", and nothing is
+signed.
+
+=item * Replacing a message replaces all of it
+
+The C<messages> option is merged one level deep.  A key you give replaces the
+whole entry for that key.  If the English entry has the forms C<one> and
+C<other> and you give only C<other>, the C<one> form is gone: it does not fall
+back to English.  Give every form you need.
+
+=item * Every placeholder needs a value
+
+A message such as C<%{error}s> is filled from the arguments given to B<i18n>.
+A placeholder with no value is an error (a croak), not an empty space.  The
+placeholder style is C<%{name}s>, not C<%s>.
+
+=item * Exit status C<0> means "accepted", not "delivered"
+
+B<send> only knows that sendmail took the message.  A later failure is the
+mail system's to report.  Call B<log_send> only after a C<0>.
+
+=item * The signed message is not the same text as the one you gave
+
+Carriage returns are removed, so the result has LF line endings.  This is on
+purpose, and B<send> does the same.  Do not compare the two with C<eq>.
+
+=item * Only the first C<From:> header counts
+
+A message with two C<From:> headers is signed for the domain of the first one.
+
+=item * Several keys, no name
+
+If the key directory holds more than one F<*.private> file and you give no
+B<selector>, nothing is signed, and there is a warning.  Name the selector.
+
+=item * C<~> is not expanded
+
+C<< keydir => '~/dkim' >> means a directory that is really called C<~>.  Use
+the full path, or C<$ENV{HOME}>.
+
+=item * Private and protected methods
+
+Names that start with an underscore cannot be called from outside the package.
+Under a test harness (C<HARNESS_ACTIVE> is set) the check is switched off, so
+that tests can reach them.
+
+=back
+
+=head1 ENCODING
+
+The module works on B<bytes>, not on decoded characters, because DKIM signs
+bytes.
+
+=over 4
+
+=item * The message
+
+Give B<sign>, B<send>, B<log_send> and B<from_domain> a message that is
+already encoded, normally as UTF-8 bytes.  Non-ASCII text and emojis in the
+subject or the body are safe in that form.  Mail systems usually expect a
+non-ASCII header to be MIME encoded (for example C<=?UTF-8?B?...?=>), and that
+is your job, not this module's.
+
+If the message is a Perl string holding characters above code point 255 (an
+emoji that has been decoded, for example), B<sign> cannot sign it: there is a
+warning and it returns C<undef>.  B<send> would write it as UTF-8 and Perl
+would warn "Wide character".  Call C<Encode::encode('UTF-8', $text)> first.
+
+=item * Domains and selectors
+
+ASCII only.  The domain taken from C<From:> must be letters, digits, dots and
+hyphens, or it is treated as no domain.  An internationalised domain name must
+be written in its C<xn--> form.  Selectors are used as file names and in DNS,
+so use letters, digits and hyphens.
+
+=item * File names
+
+B<keydir>, B<keyfile> and B<sendmail> are passed to the operating system as
+they are.  Non-ASCII names work if the bytes are what the file system holds.
+
+=item * The log line
+
+B<log_send> writes the sender, recipients and subject as they are.  UTF-8 bytes
+and emojis are kept.  Control characters, such as a line break, are replaced by
+a space.
+
+=item * Message texts
+
+The text given in C<messages> may contain any characters, emojis included.
+Warnings go to standard error: put a UTF-8 layer on it
+(C<binmode(STDERR, ':encoding(UTF-8)')>) when the text is not ASCII, or Perl
+will warn "Wide character".  The text of an operating system error comes from
+the locale of the process.
+
+=back
+
 =head1 LIMITATIONS
 
 These are the weaknesses of the design, set down so that they are chosen rather
@@ -1253,6 +1313,198 @@ above for the programs this distribution installs beside the module.
 =head1 AUTHOR
 
 Nigel Horne, C<< <njh at nigelhorne.com> >>
+
+=head1 FORMAL SPECIFICATION
+
+These are mathematical descriptions, in the Z notation, of what each routine
+does.  You do not need them to use the module.  Each one is explained in plain
+words first.  A name followed by C<?> is an input and a name followed by C<!>
+is an output.  The few symbols used mean this:
+
+	Ξ  the object is not changed        ⊥  no value (undef)
+	⇸  a partial map (some keys only)   ⇒  "if this, then that"
+	∈  is a member of                   ⁀  joined to (concatenation)
+	ℕ  a whole number, 0 or more        𝔹  true or false
+
+=head2 new
+
+The new object holds the set of domains (in lower case), the key directory,
+the optional selector and key file, the sendmail program and the messages.
+Each comes from the option, else the environment, else a default.
+
+	┌─ New ───────────────────────────────────────────────
+	│ opts? : STRING ⇸ VALUE
+	│ self! : Signer
+	├─────────────────────────────────────────────────────
+	│ self!.domains  = { lower(d) | d ∈ split(opts?.domains ∨ DKIM_DOMAINS) ∧ d ≠ "" }
+	│ self!.keydir   = opts?.keydir ∨ DKIM_KEYDIR ∨ home ⁀ "/dkim"
+	│ self!.sendmail = opts?.sendmail ∨ SENDMAIL ∨ "/usr/sbin/sendmail"
+	│ self!.selector, self!.keyfile follow the same rule, and may be absent
+	└─────────────────────────────────────────────────────
+
+=head2 sign
+
+The result is the signed message when the From: domain is one of ours and a
+key can be used.  In every other case the result is undefined, and nothing
+else changes.
+
+	┌─ Sign ──────────────────────────────────────────────
+	│ ΞSigner
+	│ message? : STRING
+	│ signed!  : STRING ∪ {⊥}
+	├─────────────────────────────────────────────────────
+	│ d = fromDomain(message?)
+	│ d ∈ domains ∧ keyUsable(d) ∧ signerSucceeds(d) ⇒
+	│     signed! = signature(d, crlf(message?)) ⁀ "\n" ⁀ local(message?)
+	│ ¬(d ∈ domains ∧ keyUsable(d) ∧ signerSucceeds(d)) ⇒ signed! = ⊥
+	└─────────────────────────────────────────────────────
+
+=head2 send
+
+The result is 1 if sendmail cannot be run, 0 if sendmail accepts the message,
+and otherwise sendmail's own exit status (1 if that status would be 0).
+
+	┌─ Send ──────────────────────────────────────────────
+	│ ΞSigner
+	│ message? : STRING;  args? : seq STRING;  status! : ℕ
+	├─────────────────────────────────────────────────────
+	│ ¬runnable(sendmail)                      ⇒ status! = 1
+	│ runnable(sendmail) ∧ accepted(local(message?)) ⇒ status! = 0
+	│ runnable(sendmail) ∧ ¬accepted(local(message?)) ⇒
+	│     status! = exitStatus(sendmail) ∨ 1  (1 when that status would be 0)
+	└─────────────────────────────────────────────────────
+
+=head2 log_send
+
+One line is written to the system log.  The result is true if that worked and false if it did not.
+
+	┌─ LogSend ───────────────────────────────────────────
+	│ message? : STRING;  args? : seq STRING;  written! : 𝔹
+	├─────────────────────────────────────────────────────
+	│ sender     = valueOf(-f, args?) ∨ firstAddress(From)
+	│ recipients = nonOptions(args?) ⁀ (headerAddresses(To, Cc, Bcc) ◁ "-t" ∈ flags(args?))
+	│ line = "sender=" ⁀ (sender ∨ "-") ⁀ " recipient=" ⁀ (join "," recipients ∨ "-")
+	│        ⁀ " subject=" ⁀ (subject ∨ "-")        (control characters made spaces)
+	│ written! = line reached syslog
+	└─────────────────────────────────────────────────────
+
+=head2 from_domain
+
+The result is the lower-case host of the first address of the first From:
+header, if it is a plain host name.  Otherwise it is undefined.
+
+	┌─ FromDomain ────────────────────────────────────────
+	│ message? : STRING;  domain! : STRING ∪ {⊥}
+	├─────────────────────────────────────────────────────
+	│ first(From, headers(message?)) = ⊥ ⇒ domain! = ⊥
+	│ a = firstAddress(first(From, headers(message?)))
+	│ host(a) matches [A-Za-z0-9.-]+ ⇒ domain! = lower(host(a))
+	│ otherwise domain! = ⊥
+	└─────────────────────────────────────────────────────
+
+=head2 selector
+
+The result is the selector, chosen in this order: the one given, the name of
+the key file, the name of the only key in the key directory.  Otherwise it is
+undefined.
+
+	┌─ Selector ──────────────────────────────────────────
+	│ ΞSigner;  selector! : STRING ∪ {⊥}
+	├─────────────────────────────────────────────────────
+	│ selector ≠ ⊥ ∧ selector ≠ ""    ⇒ selector! = selector
+	│ keyfile ≠ ⊥ ∧ name(keyfile) ≠ "" ⇒ selector! = strip(name(keyfile))
+	│ #privateKeys(keydir) = 1         ⇒ selector! = strip(the one)
+	│ otherwise                          selector! = ⊥
+	└─────────────────────────────────────────────────────
+
+=head2 i18n
+
+The result is the text of the message, with the arguments put in.  The message must exist.
+
+	┌─ I18n ──────────────────────────────────────────────
+	│ ΞSigner;  key? : STRING;  args? : STRING ⇸ VALUE;  text! : STRING
+	├─────────────────────────────────────────────────────
+	│ key? ∈ dom messages
+	│ text! = format(choose(messages(key?), args?.count, args?.variant), args?)
+	└─────────────────────────────────────────────────────
+
+=head1 STATE DIAGRAM
+
+The object itself has one state.  B<new> builds it, and nothing afterwards
+changes it: B<sign>, B<send>, B<log_send>, B<selector> and B<i18n> only read it.
+What changes is the state of B<a message> as it passes through the calls.  This
+is the diagram of that journey.
+
+	                      +-----------+
+	  message arrives --> |  RECEIVED |
+	                      +-----------+
+	                            |
+	                         sign()
+	          +-----------------+------------------+
+	          |                 |                  |
+	  domain not ours      no usable key      key works
+	  or no From:          or signer fails         |
+	          |                 |                  v
+	          |                 |            +-----------+
+	          |                 |            |  SIGNED   |
+	          |                 |            +-----------+
+	          v                 v                  |
+	      +----------------------+                 |
+	      |       UNSIGNED       |                 |
+	      +----------------------+                 |
+	                 |                             |
+	                 +-------------+---------------+
+	                               |
+	                            send()
+	          +--------------------+---------------------+
+	          |                    |                     |
+	  cannot run sendmail   sendmail exits non-0   sendmail exits 0
+	          |                    |                     |
+	          v                    v                     v
+	   +-------------+      +-------------+       +-------------+
+	   | UNSENDABLE  |      |   REFUSED   |       |  ACCEPTED   |
+	   |  (status 1) |      | (status n)  |       |  (status 0) |
+	   +-------------+      +-------------+       +-------------+
+	                                                     |
+	                                                 log_send()
+	                                          +----------+----------+
+	                                          |                     |
+	                                    syslog works          syslog fails
+	                                          |                     |
+	                                          v                     v
+	                                    +-----------+         +-----------+
+	                                    |  LOGGED   |         | NOT LOGGED|
+	                                    +-----------+         +-----------+
+
+Each change, what causes it and what happens:
+
+	From        Trigger and condition               To          Action or side effect
+	RECEIVED    sign(); From: domain not in the     UNSIGNED    Returns undef.  No warning.
+	            domains, or there is no From:
+	RECEIVED    sign(); no key, key not readable,   UNSIGNED    Returns undef.  One warning on
+	            several keys and no selector, or                standard error (key_unreadable,
+	            the signer fails                                keydir_unreadable, keys_ambiguous
+	                                                            or sign_failed).
+	RECEIVED    sign(); the key works               SIGNED      Returns the message with a
+	                                                            DKIM-Signature header first, in
+	                                                            the local (LF) form.
+	SIGNED or   send(); sendmail cannot be run      UNSENDABLE  Returns 1.  One warning
+	UNSIGNED                                                    (sendmail_failed).
+	SIGNED or   send(); sendmail exits non-zero     REFUSED     Returns sendmail's status (1 if
+	UNSIGNED    (it may stop reading early)                     that would be 0).  No signal.
+	SIGNED or   send(); sendmail exits 0            ACCEPTED    Returns 0.  The message, in the
+	UNSIGNED                                                    local form, was written to
+	                                                            sendmail.
+	ACCEPTED    log_send(); syslog works            LOGGED      Returns 1.  One line in syslog
+	                                                            (identity mail-dkim, facility
+	                                                            mail).
+	ACCEPTED    log_send(); syslog fails            NOT LOGGED  Returns 0.  One warning
+	                                                            (syslog_failed).
+
+An UNSIGNED message is still sent: signing must never stop mail being
+delivered.  UNSENDABLE, REFUSED, LOGGED and NOT LOGGED are the end of the
+journey.  The calls B<from_domain>, B<selector> and B<i18n> are questions that
+do not move the message anywhere.
 
 =head1 LICENCE AND COPYRIGHT
 
