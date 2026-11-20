@@ -1,5 +1,33 @@
 Revision history for Mail::Send::DKIM - Sign mail with DKIM, and summarise DMARC reports
 
+0.003.0 Fri Nov 20 08:49:01 AM EST 2026
+	- Refactor of Mail::Send::DKIM.  Every message it says now comes from one
+	  catalogue through the new public method i18n, with named sprintf
+	  placeholders, plural forms chosen by count and variants (gender); the
+	  new "messages" option to new replaces or adds to it.  Warnings go
+	  through Carp.
+	- send: a sendmail that refuses a message without reading it no longer
+	  kills the caller with SIGPIPE; its exit status is returned, as
+	  documented.  A sendmail that cannot be run gives one warning, not two.
+	- log_send: sendmail's options are parsed as getopt would, so a value
+	  containing t (-FNigelTest) or -bt no longer turns on -t, and an empty
+	  -f is logged as a null sender instead of the From: address.
+	- from_domain: addresses are read with Mail::Address, so a comment or a
+	  quoted display name holding an @ no longer supplies the domain, and the
+	  first address of From: is the one used.  It can be called as a method.
+	- sign returns undef, not an empty list, when there is nothing to sign.
+	- Helpers are private (Sub::Private, enforce mode) and the warning writer
+	  is protected (Sub::Protected); constants are Readonly; header parsing
+	  is done once and shared; new, sign and from_domain validate their
+	  arguments with Params::Validate::Strict.
+	- POD: EXAMPLE, API SPECIFICATION, MESSAGES, FORMAL SPECIFICATION and
+	  PSEUDOCODE sections for the public routines, and a LIMITATIONS section.
+	- Tests: t/i18n.t, t/headers.t and t/locales.t (OS error strings under
+	  en_US, de_DE, ja_JP and zh_CN locales).  readme.t sets PERL_UNICODE=S
+	  because the POD now contains Z notation.
+	- New prerequisites: Mail::Address, Params::Validate::Strict,
+	  Sub::Private, Sub::Protected, IPC::System::Simple.
+
 0.002.0 Thu Nov 19 08:12:25 PM EST 2026
 	- mail-dkim: log the sender, recipients and subject of each message
 	  sendmail accepts to syslog (identity mail-dkim, facility mail), through

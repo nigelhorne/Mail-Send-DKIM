@@ -7,13 +7,88 @@ package Mail::Send::DKIM;
 
 use strict;
 use warnings;
+# Not :all - that wraps the socket builtin send(), which this package's
+# documented send() method would then redefine.  Sockets are not used here.
+use autodie qw(:file :filesys :system);
 
+use Carp qw(carp croak);
+use File::Basename qw(basename);
+use Mail::Address;
 use Mail::DKIM::Signer;
-use Params::Get;
-use Sys::Syslog ();
 use Object::Configure;
+use Params::Get;
+use Params::Validate::Strict qw(validate_strict);
+use Readonly;
+# Helpers are private to this package, enforced at call time so that method
+# dispatch ($self->_helper) is covered as well as plain function calls.
+use Sub::Private { 'mode' => 'enforce' };
+use Sub::Protected;
+use Sys::Syslog ();
 
 use version; our $VERSION = version->declare('0.002.0');
+
+# What the signature is made with: the shape receiving sites expect.
+Readonly my $ALGORITHM => 'rsa-sha256';
+Readonly my $CANONICALIZATION => 'relaxed';
+
+# Where keys are kept, and what a key file is called.
+Readonly my $KEY_SUFFIX => '.private';
+Readonly my $KEYFILE_NAME_SUFFIX => qr/\.(?:private|key|pem)\z/;
+Readonly my $DEFAULT_KEYDIR_NAME => 'dkim';
+Readonly my $DEFAULT_SENDMAIL => '/usr/sbin/sendmail';
+Readonly my $DOMAIN_SEPARATOR => qr/[\s,]+/;
+Readonly my $DOMAIN_SYNTAX => qr/\A[A-Za-z0-9.-]+\z/;
+
+# The exit statuses of send(): sendmail's own, or ours when it never ran.
+Readonly my $EXIT_ACCEPTED => 0;
+Readonly my $EXIT_CANNOT_RUN => 1;
+
+# The syslog line.  A missing value is logged as a dash so that every field
+# is always present and the line can be split on spaces.
+Readonly my $SYSLOG_IDENT => 'mail-dkim';
+Readonly my $SYSLOG_OPTIONS => 'pid,ndelay';
+Readonly my $SYSLOG_FACILITY => 'mail';
+Readonly my $SYSLOG_LEVEL => 'info';
+Readonly my $MISSING_VALUE => '-';
+Readonly my @RECIPIENT_HEADERS => qw(To Cc Bcc);
+
+# sendmail options that take a value, either attached (-fuser) or as the next
+# argument (-f user).  Knowing them is what stops a value being taken for a
+# recipient, or a letter inside a value being taken for a flag.
+Readonly my $VALUE_OPTIONS => 'fBboprRVNLXAqFC';
+
+# Every sentence this module can say.  An entry is a format with named
+# placeholders, %{name}s or %{name}d, or a hash of such formats chosen by the
+# arguments' "count" (zero, one, other) and/or "variant" (a gender or other
+# context, alone or as "variant.count").  A language is added by passing a
+# "messages" option to new(), which may be set from an Object::Configure file.
+Readonly my %DEFAULT_MESSAGES => (
+	'key_unreadable' => 'Mail::Send::DKIM: no readable key at %{keyfile}s; sending %{domain}s unsigned',
+	'sign_failed' => 'Mail::Send::DKIM: cannot sign for %{domain}s (%{error}s); sending unsigned',
+	'sendmail_failed' => 'Mail::Send::DKIM: cannot run %{sendmail}s: %{os_error}s',
+	'keydir_unreadable' => 'Mail::Send::DKIM: cannot read %{keydir}s: %{os_error}s',
+	'keys_ambiguous' => {
+		'one' => 'Mail::Send::DKIM: %{keydir}s holds %{count}d key; name the selector to choose one',
+		'other' => 'Mail::Send::DKIM: %{keydir}s holds %{count}d keys; name the selector to choose one',
+	},
+	'syslog_failed' => 'Mail::Send::DKIM: cannot write to syslog: %{error}s',
+	'unknown_message' => 'Mail::Send::DKIM: no message is defined for the key "%{key}s"',
+	'missing_argument' => 'Mail::Send::DKIM: the message "%{key}s" needs the argument "%{argument}s"',
+);
+
+# The options new() accepts.  Anything else - Object::Configure adds some of its
+# own - is ignored rather than refused.
+Readonly my %NEW_SCHEMA => (
+	'domains' => { 'type' => ['string', 'arrayref'], 'optional' => 1 },
+	'keydir' => { 'type' => 'string', 'optional' => 1 },
+	'selector' => { 'type' => 'string', 'optional' => 1 },
+	'keyfile' => { 'type' => 'string', 'optional' => 1 },
+	'sendmail' => { 'type' => 'string', 'optional' => 1 },
+	'home' => { 'type' => 'string', 'optional' => 1 },
+	'messages' => { 'type' => 'hashref', 'optional' => 1 },
+);
+
+=encoding utf-8
 
 =head1 NAME
 
@@ -155,7 +230,86 @@ the selector comes from its name unless one is given.
 The program B<send> hands the message to.  Defaults to C<$ENV{SENDMAIL}>, or
 F</usr/sbin/sendmail>.
 
+=item C<messages>
+
+A hash reference of message formats that replace or add to the ones this
+module speaks with, keyed by message key, for a language other than English or
+wording of your own.  See B<i18n> for the format.  Because B<new> reads its
+options through L<Object::Configure>, the same hash can come from a
+configuration file.
+
 =back
+
+=head3 PURPOSE
+
+Builds the signer.  No file is read and no program is run here, so a mistake
+in B<keydir> or B<keyfile> shows when a message is signed, not when the object
+is made.
+
+=head3 EXAMPLE
+
+	# Everything from the environment: DKIM_DOMAINS, DKIM_KEYDIR, ...
+	my $dkim = Mail::Send::DKIM->new();
+
+	# Everything given, a list of domains, a named key and a test sendmail
+	my $dkim = Mail::Send::DKIM->new(
+		domains => 'example.org, example.net',
+		keyfile => '/etc/dkim/2026.private',
+		sendmail => '/usr/local/bin/capture-sendmail',
+	);
+
+	# A message in another language
+	my $dkim = Mail::Send::DKIM->new(
+		messages => { sendmail_failed => 'sendmail %{sendmail}s: %{os_error}s' },
+	);
+
+=head3 API SPECIFICATION
+
+=head4 Input (Params::Validate::Strict)
+
+	{
+		domains => { type => ['string', 'arrayref'], optional => 1 },
+		keydir => { type => 'string', optional => 1 },
+		selector => { type => 'string', optional => 1 },
+		keyfile => { type => 'string', optional => 1 },
+		sendmail => { type => 'string', optional => 1 },
+		home => { type => 'string', optional => 1 },
+		messages => { type => 'hashref', optional => 1 },
+	}
+
+Options not listed are ignored.  The options may be given as a hash or as a
+hash reference.
+
+=head4 Output (Return::Set)
+
+	{ type => 'object', isa => 'Mail::Send::DKIM' }
+
+=head3 MESSAGES
+
+An option of the wrong type is refused with the message of
+L<Params::Validate::Strict>, which names the option.  Nothing else is said.
+
+=head3 FORMAL SPECIFICATION
+
+	┌─ New ───────────────────────────────────────────────
+	│ opts? : STRING ⇸ VALUE
+	│ self! : Signer
+	├─────────────────────────────────────────────────────
+	│ self!.domains  = { lower(d) | d ∈ split(opts?.domains ∨ DKIM_DOMAINS) ∧ d ≠ "" }
+	│ self!.keydir   = opts?.keydir ∨ DKIM_KEYDIR ∨ home ⁀ "/dkim"
+	│ self!.sendmail = opts?.sendmail ∨ SENDMAIL ∨ "/usr/sbin/sendmail"
+	│ self!.selector, self!.keyfile follow the same rule, and may be absent
+	└─────────────────────────────────────────────────────
+
+=head3 PSEUDOCODE
+
+	options = get_params(args)
+	options = Object::Configure(options)       # config files, environment
+	options = validate(options, NEW_SCHEMA)    # croak on a wrong type
+	home    = options.home or $HOME or passwd entry or "."
+	domains = split(options.domains or $DKIM_DOMAINS), lower-cased, as a set
+	messages = defaults overlaid with options.messages
+	return object(domains, keydir, selector, keyfile, sendmail, messages)
 
 =cut
 
@@ -167,18 +321,22 @@ sub new
 	my $params = Params::Get::get_params(undef, \@_) // {};
 
 	$params = Object::Configure::configure($class, $params);
+	$params = validate_strict(
+		'schema' => \%NEW_SCHEMA,
+		'input' => $params,
+		'unknown_parameter_handler' => 'ignore',
+	);
 
-	my $home = $params->{home} || $ENV{'HOME'} || (getpwuid($<))[7] || '.';
-
-	my $domains = $params->{'domains'} // $ENV{'DKIM_DOMAINS'} // '';
-	my @domains = ref($domains) eq 'ARRAY' ? @$domains : split(/[\s,]+/, $domains);
+	my $home = $params->{'home'} || $ENV{'HOME'} || (getpwuid($<))[7] || '.';
 
 	my $self = {
-		'domains' => { map { lc($_) => 1 } grep { length } @domains },
-		'keydir' => $params->{'keydir'} // $ENV{'DKIM_KEYDIR'} // "$home/dkim",
+		'domains' => _domain_set($params->{'domains'} // $ENV{'DKIM_DOMAINS'}),
+		'keydir' => $params->{'keydir'} // $ENV{'DKIM_KEYDIR'} // "$home/$DEFAULT_KEYDIR_NAME",
 		'selector' => $params->{'selector'} // $ENV{'DKIM_SELECTOR'},
 		'keyfile' => $params->{'keyfile'} // $ENV{'DKIM_KEYFILE'},
-		'sendmail' => $params->{'sendmail'} // $ENV{'SENDMAIL'} // '/usr/sbin/sendmail',
+		'sendmail' => $params->{'sendmail'} // $ENV{'SENDMAIL'} // $DEFAULT_SENDMAIL,
+		# Shallow overlay: a caller's entry replaces the default one whole.
+		'messages' => { %DEFAULT_MESSAGES, %{ $params->{'messages'} // {} } },
 	};
 
 	return bless($self, $class);
@@ -194,6 +352,56 @@ is never altered in the undef case, so the caller sends it unchanged.
 Carriage returns are folded to LF on the way, so what comes back is in the
 local form.
 
+=head3 PURPOSE
+
+Signs the message when, and only when, a key for its C<From:> domain can be
+found and used.  Nothing is raised for a failure to sign: the caller sends the
+message as it is.
+
+=head3 EXAMPLE
+
+	my $signed = $dkim->sign($message);
+	$message = $signed if(defined($signed));
+
+=head3 API SPECIFICATION
+
+=head4 Input (Params::Validate::Strict)
+
+	{ message => { type => 'string' } }
+
+An undefined message is treated as an empty one, which has no C<From:>.  It
+may be given positionally or as C<< message => $text >>.
+
+=head4 Output (Return::Set)
+
+	{ type => 'string', optional => 1 }
+
+The signed message in the local form, or C<undef>.
+
+=head3 MESSAGES
+
+	Message key       Text                                      Meaning and resolution
+	key_unreadable    no readable key at FILE; sending DOMAIN   The key file is absent or not
+	                  unsigned                                  readable: fix the path or the mode.
+	sign_failed       cannot sign for DOMAIN (REASON); ...      Mail::DKIM refused the key or
+	                                                            the message: see REASON.
+	keydir_unreadable, keys_ambiguous                           As for selector, below.
+
+Each is a warning, and the return is C<undef>.
+
+=head3 FORMAL SPECIFICATION
+
+	┌─ Sign ──────────────────────────────────────────────
+	│ ΞSigner
+	│ message? : STRING
+	│ signed!  : STRING ∪ {⊥}
+	├─────────────────────────────────────────────────────
+	│ d = fromDomain(message?)
+	│ d ∈ domains ∧ keyUsable(d) ∧ signerSucceeds(d) ⇒
+	│     signed! = signature(d, crlf(message?)) ⁀ "\n" ⁀ local(message?)
+	│ ¬(d ∈ domains ∧ keyUsable(d) ∧ signerSucceeds(d)) ⇒ signed! = ⊥
+	└─────────────────────────────────────────────────────
+
 =cut
 
 sub sign
@@ -201,46 +409,72 @@ sub sign
 	my $self = shift;
 
 	my $params = Params::Get::get_params('message', \@_);
-	my $message = $params->{message};
+	my $message = validate_strict('schema' => { 'message' => { 'type' => 'string' } }, 'input' => $params)->{'message'} // '';
 
 	my $domain = from_domain($message);
-	return unless(defined($domain));
-	return unless($self->{'domains'}->{$domain});
 
-	my $selector = $self->selector;
-	return unless(defined($selector));
+	# Only a domain this host signs for is worth looking for a key.
+	return (defined($domain) && $self->{'domains'}->{$domain}) ? $self->_sign_for($domain, $message) : undef;
+}
 
-	# A key file named outright needs neither the directory nor the naming
-	# convention; otherwise the key is <keydir>/<selector>.private.
-	my $keyfile = $self->{'keyfile'} // $self->{'keydir'} . "/$selector.private";
-	unless(-r $keyfile) {
-		warn "Mail::Send::DKIM: no readable key at $keyfile; sending $domain unsigned";
-		return;
+# Purpose:        Find the key for a domain we sign for and sign with it.
+# Entry criteria: $domain is a lower-case domain in the signing set; $message
+#                 is the message as it arrived.
+# Exit status:    The signed message in the local form, or undef - after a
+#                 warning that says why - when there is no usable key.
+# Side effects:   Reads the key file; may warn.
+sub _sign_for :Private
+{
+	my ($self, $domain, $message) = @_;
+
+	my $selector = $self->selector();
+	my $signed;
+
+	if(defined($selector)) {
+		# A key file named outright needs neither the directory nor the naming
+		# convention; otherwise the key is <keydir>/<selector>.private.
+		my $keyfile = $self->{'keyfile'} // "$self->{'keydir'}/$selector$KEY_SUFFIX";
+
+		if(-r $keyfile) {
+			$signed = $self->_dkim_sign($domain, $selector, $keyfile, $message);
+		} else {
+			$self->_say('key_unreadable', { 'keyfile' => $keyfile, 'domain' => $domain });
+		}
 	}
 
-	# DKIM hashes the message in the form it travels in, where every line
-	# ends CRLF, so the signature is made over a CRLF copy of what arrived.
-	(my $wire = _local($message)) =~ s/\n/\r\n/g;
+	return $signed;
+}
 
-	my $signed;
-	eval {
+# Purpose:        Make the DKIM signature and put it on the front of the message.
+# Entry criteria: $keyfile is readable; $selector and $domain are not empty.
+# Exit status:    The signed message in the local form, or undef after a warning
+#                 when Mail::DKIM could not sign (a key it cannot load, say).
+# Side effects:   May warn.  Nothing is raised: a failure to sign must not
+#                 become a failure to deliver.
+sub _dkim_sign :Private
+{
+	my ($self, $domain, $selector, $keyfile, $message) = @_;
+
+	# DKIM hashes the message in the form it travels in, where every line
+	# ends CRLF, so the signature is made over a CRLF copy of what arrived,
+	# while what is returned has the local line endings.
+	my $local = _local($message);
+	(my $wire = $local) =~ s/\n/\r\n/g;
+
+	my $signed = eval {
 		my $signer = Mail::DKIM::Signer->new(
-			Algorithm => 'rsa-sha256',
-			Method => 'relaxed',
-			Domain => $domain,
-			Selector => $selector,
-			KeyFile => $keyfile,
+			'Algorithm' => $ALGORITHM,
+			'Method' => $CANONICALIZATION,
+			'Domain' => $domain,
+			'Selector' => $selector,
+			'KeyFile' => $keyfile,
 		);
 		$signer->PRINT($wire);
-		$signer->CLOSE;
-		$signed = $signer->signature->as_string . "\n" . _local($message);
-		1;
-	} or do {
-		my $error = $@ || 'unknown error';
-		chomp($error);
-		warn "Mail::Send::DKIM: cannot sign for $domain ($error); sending unsigned";
-		return;
+		$signer->CLOSE();
+
+		$signer->signature->as_string() . "\n" . $local;
 	};
+	$self->_say('sign_failed', { 'domain' => $domain, 'error' => _first_line($@ || 'unknown error') }) unless(defined($signed));
 
 	return $signed;
 }
@@ -254,23 +488,87 @@ be run at all.  The message is normalised to LF first, so nothing that arrived
 with CRLF - signed or passed through unsigned - carries a carriage return to
 the MTA.
 
+=head3 PURPOSE
+
+Delivers the message to the local MTA and reports what the MTA said.
+
+=head3 EXAMPLE
+
+	my $status = $dkim->send($message, '-t', '-f', 'alerts@example.org');
+	exit($status);
+
+=head3 API SPECIFICATION
+
+=head4 Input (Params::Validate::Strict)
+
+	{
+		message => { type => 'string' },
+		arguments => { type => 'arrayref', optional => 1 },   # the rest of @_
+	}
+
+=head4 Output (Return::Set)
+
+	{ type => 'integer', min => 0, max => 255 }
+
+=head3 MESSAGES
+
+	Message key        Meaning and resolution
+	sendmail_failed    The sendmail program could not be started (not found,
+	                   not executable): fix the sendmail option or SENDMAIL.
+	                   The return is 1.
+
+A sendmail that exits before it has read the whole message does not stop the
+caller with SIGPIPE: its exit status is returned.
+
+=head3 FORMAL SPECIFICATION
+
+	┌─ Send ──────────────────────────────────────────────
+	│ Σ Signer
+	│ message? : STRING;  args? : seq STRING;  status! : ℕ
+	├─────────────────────────────────────────────────────
+	│ ¬runnable(sendmail)                      ⇒ status! = 1
+	│ runnable(sendmail) ∧ accepted(local(message?)) ⇒ status! = 0
+	│ runnable(sendmail) ∧ ¬accepted(local(message?)) ⇒
+	│     status! = exitStatus(sendmail) ∨ 1  (1 when that status would be 0)
+	└─────────────────────────────────────────────────────
+
+=head3 PSEUDOCODE
+
+	ignore SIGPIPE's default action (a handler, so sendmail does not inherit it)
+	open a pipe to sendmail with the arguments, as a list so no shell is involved
+	if that fails: warn sendmail_failed, return 1
+	write the local form of the message, then close the pipe
+	if the write and the close both succeeded: return 0
+	return sendmail's exit status, or 1 when that would have been 0
+
 =cut
 
 sub send
 {
 	my ($self, $message, @args) = @_;
 
-	open(my $sendmail, '|-', $self->{'sendmail'}, @args) or do {
-		warn "Mail::Send::DKIM: cannot run $self->{'sendmail'}: $!";
-		return 1;
-	};
-	print $sendmail _local($message);
+	# A sendmail that cannot be run, or that refuses the message, is a status
+	# for the caller, not an exception, so autodie stands aside for the pipe.
+	no autodie qw(open close);
+	# perl would add its own "Can't exec" to the warning given below.
+	no warnings 'exec';
+	# A sendmail that refuses a message may exit before reading it, and the
+	# write would then kill us with SIGPIPE before its status could be read.
+	# A handler, not IGNORE: an ignored signal is also ignored by the child.
+	local $SIG{'PIPE'} = sub { };
 
-	return 0 if(close($sendmail));
+	my $status = $EXIT_CANNOT_RUN;
 
-	my $status = $? >> 8;
+	if(open(my $sendmail, '|-', $self->{'sendmail'}, @args)) {
+		my $written = print {$sendmail} _local($message // '');
 
-	return $status || 1;
+		# close() waits for sendmail; its exit status is in $? afterwards.
+		$status = close($sendmail) ? ($written ? $EXIT_ACCEPTED : $EXIT_CANNOT_RUN) : (($? >> 8) || $EXIT_CANNOT_RUN);
+	} else {
+		$self->_say('sendmail_failed', { 'sendmail' => $self->{'sendmail'}, 'os_error' => "$!" });
+	}
+
+	return $status;
 }
 
 =head2 B<log_send> $message, @arguments
@@ -288,104 +586,181 @@ Returns true when the line was written.  Logging never stands between a message
 and its recipient: a syslog that cannot be reached is a warning, and a false
 return.
 
+=head3 PURPOSE
+
+Leaves a trace, in the system log, of every message that was passed on.
+
+=head3 EXAMPLE
+
+	$dkim->log_send($message, '-t', '-f', 'alerts@example.org')
+		if($dkim->send($message, '-t', '-f', 'alerts@example.org') == 0);
+
+=head3 API SPECIFICATION
+
+=head4 Input (Params::Validate::Strict)
+
+	{
+		message => { type => 'string' },
+		arguments => { type => 'arrayref', optional => 1 },
+	}
+
+=head4 Output (Return::Set)
+
+	{ type => 'boolean' }
+
+=head3 MESSAGES
+
+	Message key        Meaning and resolution
+	syslog_failed      openlog or syslog failed: check that a syslog daemon is
+	                   running and its socket is reachable.  The return is 0.
+
+=head3 FORMAL SPECIFICATION
+
+	┌─ LogSend ───────────────────────────────────────────
+	│ message? : STRING;  args? : seq STRING;  written! : 𝔹
+	├─────────────────────────────────────────────────────
+	│ sender     = valueOf(-f, args?) ∨ firstAddress(From)
+	│ recipients = nonOptions(args?) ⁀ (headerAddresses(To, Cc, Bcc) ◁ "-t" ∈ flags(args?))
+	│ line = "sender=" ⁀ (sender ∨ "-") ⁀ " recipient=" ⁀ (join "," recipients ∨ "-")
+	│        ⁀ " subject=" ⁀ (subject ∨ "-")        (control characters made spaces)
+	│ written! = line reached syslog
+	└─────────────────────────────────────────────────────
+
+=head3 PSEUDOCODE
+
+	parse the arguments into (sender, recipients, whether -t was given), where an
+	    option that takes a value, attached or separate, never yields a recipient
+	parse the headers of the message once
+	sender   = the -f value, else the first address of From
+	if -t was given: add the addresses of To, Cc and Bcc to the recipients
+	subject  = the Subject, or "-"
+	make the line, replace control characters by spaces
+	write it to syslog; if that fails, warn syslog_failed and return 0
+	return 1
+
 =cut
 
 sub log_send
 {
 	my ($self, $message, @args) = @_;
 
-	my $sender;
-	my @recipients;
-	my $tflag;
-	my $skip;	# the argument after an option that takes a value
-	foreach my $arg (@args) {
-		if($skip) {
-			$sender = $arg if($skip eq 'f');
-			$skip = 0;
-			next;
-		}
-		if($arg =~ /\A-f(.+)/s) {
-			$sender = $1;
-		} elsif($arg eq '-f') {
-			$skip = 'f';
-		} elsif($arg =~ /\A-[BboprRVNLXAqFC]\z/) {
-			$skip = 'x';
-		} elsif($arg eq '--') {
-			next;
-		} elsif($arg =~ /\A-/) {
-			$tflag = 1 if($arg =~ /\A-[A-Za-z]*t/);
-		} else {
-			push(@recipients, $arg);
-		}
-	}
-	$sender //= _addresses(_header($message, 'From'));
-	push(@recipients, map { _addresses(_header($message, $_)) } qw(To Cc Bcc)) if($tflag);
+	my $parsed = _parse_sendmail_args(\@args);
+	my $headers = _parse_headers($message // '');
 
-	my $subject = _header($message, 'Subject');
-	$subject = '-' unless(defined($subject) && length($subject));
-	$subject =~ s/[[:cntrl:]]/ /g;
+	my @recipients = @{ $parsed->{'recipients'} };
+	# With -t sendmail reads the recipients from the headers as well.
+	push(@recipients, map { @{ _addresses($headers->{lc($_)}) } } @RECIPIENT_HEADERS) if($parsed->{'reads_headers'});
+
+	my $subject = $headers->{'subject'};
+	$subject = $MISSING_VALUE unless(defined($subject) && length($subject));
+
+	# -f wins over the From: header, and an empty -f (a bounce) stays empty.
+	my $sender = $parsed->{'sender'} // _addresses($headers->{'from'})->[0];
 
 	my $line = sprintf('sender=%s recipient=%s subject=%s',
-		$sender || '-', @recipients ? join(',', @recipients) : '-', $subject);
+		$sender || $MISSING_VALUE,
+		@recipients ? join(',', @recipients) : $MISSING_VALUE,
+		$subject);
+
+	# The subject and the addresses come from the message, so a line break in
+	# any of them would otherwise let it forge a second log line.
 	$line =~ s/[[:cntrl:]]/ /g;
 
-	my $ok = eval {
-		Sys::Syslog::openlog('mail-dkim', 'pid,ndelay', 'mail');
-		Sys::Syslog::syslog('info', '%s', $line);
+	return $self->_write_syslog($line) ? 1 : 0;
+}
+
+# Purpose:        Split the arguments sendmail was given into what the log needs.
+# Entry criteria: $args is an array reference of the arguments, as given.
+# Exit status:    A hash reference: sender (the -f value, or absent),
+#                 recipients (array reference), reads_headers (true for -t).
+# Side effects:   None.
+sub _parse_sendmail_args :Private
+{
+	my $args = shift;
+
+	my %parsed = ('recipients' => []);
+	my $pending;	# the letter of an option still waiting for its value
+
+	foreach my $arg (@{$args}) {
+		if(defined($pending)) {
+			# The value of -f is the sender; the others are not logged.
+			$parsed{'sender'} = $arg if($pending eq 'f');
+			undef($pending);
+		} elsif($arg eq '--') {
+			next;
+		} elsif($arg =~ /\A-([$VALUE_OPTIONS])(.*)\z/s) {
+			# Like getopt, the rest of the argument is the value when there is any.
+			my ($letter, $attached) = ($1, $2);
+			if(length($attached)) {
+				$parsed{'sender'} = $attached if($letter eq 'f');
+			} else {
+				$pending = $letter;
+			}
+		} elsif($arg =~ /\A-(.*)\z/s) {
+			# A cluster of flags, such as -ti, none of which takes a value.
+			$parsed{'reads_headers'} = 1 if($1 =~ /t/);
+		} else {
+			push(@{ $parsed{'recipients'} }, $arg);
+		}
+	}
+
+	return \%parsed;
+}
+
+# Purpose:        Send one line to syslog.
+# Entry criteria: $line holds no control characters.
+# Exit status:    True when syslog took the line, false - after a warning -
+#                 when it could not be reached.
+# Side effects:   Opens and closes the syslog connection.
+sub _write_syslog :Private
+{
+	my ($self, $line) = @_;
+
+	my $written = eval {
+		Sys::Syslog::openlog($SYSLOG_IDENT, $SYSLOG_OPTIONS, $SYSLOG_FACILITY);
+		Sys::Syslog::syslog($SYSLOG_LEVEL, '%s', $line);
 		Sys::Syslog::closelog();
 		1;
 	};
-	warn "Mail::Send::DKIM: cannot write to syslog: $@" unless($ok);
+	$self->_say('syslog_failed', { 'error' => _first_line($@) }) unless($written);
 
-	return $ok ? 1 : 0;
+	return $written;
 }
 
-# The unfolded value of the first header of that name, or undef.
-sub _header
-{
-	my ($message, $name) = @_;
-
-	my ($head) = $message =~ /\A(.*?)\r?\n\r?\n/s;
-	$head = $message unless(defined($head));
-	$head =~ s/\r?\n[ \t]+/ /g;
-
-	return $head =~ /^\Q$name\E:[ \t]*(.*?)\s*$/mi ? $1 : undef;
-}
-
-# The addresses in a header value: the one in angle brackets when there is
-# one, else the bare address, for each of the comma separated items.
-sub _addresses
-{
-	my $value = shift;
-
-	return unless(defined($value));
-
-	my @found;
-	foreach my $item (split(/,(?=(?:[^"]*"[^"]*")*[^"]*\z)/, $value)) {
-		if($item =~ /<([^>]*)>/) {
-			push(@found, $1);
-		} elsif($item =~ /([^\s<>()"]+\@[^\s<>()"]+)/) {
-			push(@found, $1);
-		}
-	}
-
-	return wantarray ? @found : $found[0];
-}
-
-#
-# What is handed to sendmail is the local form of the message: LF line endings
-# and no carriage return anywhere, whatever arrived.  A CR is data to the MTA
-# that keeps the message - Postfix's sendmail_fix_line_endings and Exim both
-# write the CRLF of SMTP themselves - so one that survived would reach the
-# receiver doubled, and the message would fail the signature it was just given.
-sub _local
+# Purpose:        Read the header block of a message into a hash.
+# Entry criteria: $message is a string, with LF or CRLF line endings.
+# Exit status:    A hash reference from lower-case header name to the unfolded
+#                 value of the first header of that name.  A message with no
+#                 blank line is all header.
+# Side effects:   None.
+sub _parse_headers :Private
 {
 	my $message = shift;
 
-	$message =~ s/\r\n/\n/g;
-	$message =~ s/\r//g;
+	my ($block) = $message =~ /\A(.*?)\r?\n\r?\n/s;
+	$block //= $message;
 
-	return $message;
+	# A header can be folded over several lines; join them back.
+	$block =~ s/\r?\n[ \t]+/ /g;
+
+	my %headers;
+	foreach my $line (split(/\r?\n/, $block)) {
+		$headers{lc($1)} //= $2 if($line =~ /\A([^\s:]+):[ \t]*(.*?)\s*\z/);
+	}
+
+	return \%headers;
+}
+
+# Purpose:        The addresses in a header value.
+# Entry criteria: $value is a header value, or undef.
+# Exit status:    An array reference of the addresses, in order; empty when
+#                 there are none.  Display names and comments are dropped.
+# Side effects:   None.
+sub _addresses :Private
+{
+	my $value = shift;
+
+	return defined($value) ? [ grep { length } map { $_->address() // '' } Mail::Address->parse($value) ] : [];
 }
 
 =head2 B<from_domain> $message
@@ -394,31 +769,66 @@ The domain of the address in the first C<From:> header, in lower case, or
 C<undef> when there is no such header.  Folded headers and display names are
 understood.
 
+=head3 PURPOSE
+
+Says whose domain a message claims to be from, which is what decides whether
+it is signed.  The address is read by L<Mail::Address>, so quoted display
+names, comments and groups are handled by a parser that has seen them before.
+Only a plain host name is accepted as a domain (letters, digits, dots and
+hyphens).
+
+=head3 EXAMPLE
+
+	my $domain = Mail::Send::DKIM::from_domain($message);	# 'example.org'
+	my $same = $dkim->from_domain($message);
+
+=head3 API SPECIFICATION
+
+=head4 Input (Params::Validate::Strict)
+
+	{ message => { type => 'string' } }
+
+It may be called as a function or as a method.
+
+=head4 Output (Return::Set)
+
+	{ type => 'string', optional => 1, matches => qr/\A[a-z0-9.-]+\z/ }
+
+=head3 MESSAGES
+
+None: a message without a usable From: is not an error, the answer is C<undef>.
+
+=head3 FORMAL SPECIFICATION
+
+	┌─ FromDomain ────────────────────────────────────────
+	│ message? : STRING;  domain! : STRING ∪ {⊥}
+	├─────────────────────────────────────────────────────
+	│ first(From, headers(message?)) = ⊥ ⇒ domain! = ⊥
+	│ a = firstAddress(first(From, headers(message?)))
+	│ host(a) matches [A-Za-z0-9.-]+ ⇒ domain! = lower(host(a))
+	│ otherwise domain! = ⊥
+	└─────────────────────────────────────────────────────
+
 =cut
 
-#
-# The domain an address is at, from the first From: header.  A header field can
-# be folded over several lines, so the continuation lines are joined first, and
-# a display name is dropped in favour of the address in angle brackets.
 sub from_domain
 {
-	my $message = shift;
+	# Called as a method, the first argument is the object, not the message.
+	shift if(@_ > 1);
+	my $message = validate_strict('schema' => { 'message' => { 'type' => 'string' } }, 'input' => { 'message' => $_[0] })->{'message'} // '';
 
-	my ($head) = $message =~ /\A(.*?)\r?\n\r?\n/s;
-	$head = $message unless(defined($head));
-	$head =~ s/\r?\n[ \t]+/ /g;
-	return unless($head =~ /^From:[ \t]*(.*?)\s*$/mi);
+	my $from = _parse_headers($message)->{'from'};
+	my $host;
 
-	my $value = $1;
-	my ($address) = $value =~ /<([^>]*)>/;
-	$address = $value unless(defined($address));
+	if(defined($from)) {
+		# The first address is the author; display names and comments around
+		# it are Mail::Address's to deal with, not ours.
+		my ($address) = Mail::Address->parse($from);
+		$host = $address->host() if(defined($address));
+	}
 
-	# An address can be followed by a comment, so the domain is the last
-	# thing that looks like one rather than the end of the string.
-	my @domains = $address =~ /\@([A-Za-z0-9.-]+)/g;
-	return unless(@domains);
-
-	return lc($domains[-1]);
+	# Only a plain host name is a domain; the result is put in the signature.
+	return (defined($host) && $host =~ $DOMAIN_SYNTAX) ? lc($host) : undef;
 }
 
 =head2 B<selector>
@@ -429,12 +839,54 @@ otherwise the name of the only F<*.private> file in B<keydir>.  C<undef> when it
 cannot be decided - no key, or several keys and no name - and the reason is a
 warning on standard error.  B<sign> asks this before doing anything else.
 
+=head3 PURPOSE
+
+Settles which of the keys is to be used, once, in one place.
+
+=head3 EXAMPLE
+
+	my $selector = $dkim->selector();
+	die 'no usable key' unless(defined($selector));
+
+=head3 API SPECIFICATION
+
+=head4 Input (Params::Validate::Strict)
+
+	{}
+
+=head4 Output (Return::Set)
+
+	{ type => 'string', optional => 1 }
+
+=head3 MESSAGES
+
+	Message key         Meaning and resolution
+	keydir_unreadable   keydir cannot be opened: create it, or fix the mode or
+	                    the keydir option.
+	keys_ambiguous      keydir holds no key, or more than one, and no selector
+	                    was named: add the key, or set DKIM_SELECTOR.
+
+=head3 FORMAL SPECIFICATION
+
+	┌─ Selector ──────────────────────────────────────────
+	│ ΞSigner;  selector! : STRING ∪ {⊥}
+	├─────────────────────────────────────────────────────
+	│ selector ≠ ⊥ ∧ selector ≠ ""    ⇒ selector! = selector
+	│ keyfile ≠ ⊥ ∧ name(keyfile) ≠ "" ⇒ selector! = strip(name(keyfile))
+	│ #privateKeys(keydir) = 1         ⇒ selector! = strip(the one)
+	│ otherwise                          selector! = ⊥
+	└─────────────────────────────────────────────────────
+
+=head3 PSEUDOCODE
+
+	if a selector was given: return it
+	if a key file was given: return its name without .private, .key or .pem
+	list the *.private files in keydir (a warning and undef if it cannot be read)
+	if there is not exactly one: warn, return undef
+	return its name without .private
+
 =cut
 
-# The key file is <keydir>/<selector>.private.  With no selector named the
-# selector is the name of the only key in the directory, which is the usual
-# case: one key, published for every domain this host sends as.  Anything
-# ambiguous is a warning rather than a guess.
 sub selector
 {
 	my $self = shift;
@@ -445,27 +897,230 @@ sub selector
 	# A named key file carries its selector in its name, which is the layout
 	# the keys are kept in: <keydir>/<selector>.private.
 	if(defined($self->{'keyfile'})) {
-		(my $from_name = $self->{'keyfile'}) =~ s{.*[\\/]}{};
-		$from_name =~ s/\.(?:private|key|pem)\z//;
-		return $from_name if(length($from_name));
+		($selector = basename($self->{'keyfile'})) =~ s/$KEYFILE_NAME_SUFFIX//;
+		return $selector if(length($selector));
 	}
 
-	opendir(my $dh, $self->{'keydir'}) or do {
-		warn "Mail::Send::DKIM: cannot read $self->{'keydir'}: $!";
-		return;
-	};
-	my @keys = sort grep { /\.private\z/ } readdir($dh);
-	closedir($dh);
+	my $keys = $self->_private_keys();
+	return undef unless(defined($keys));
 
-	unless(@keys == 1) {
-		warn sprintf("Mail::Send::DKIM: %s holds %d key(s); name the selector to choose one",
-			$self->{'keydir'}, scalar(@keys));
-		return;
+	unless(@{$keys} == 1) {
+		$self->_say('keys_ambiguous', { 'keydir' => $self->{'keydir'}, 'count' => scalar(@{$keys}) });
+		return undef;
 	}
 
-	(my $found = $keys[0]) =~ s/\.private\z//;
+	($selector = $keys->[0]) =~ s/\Q$KEY_SUFFIX\E\z//;
 
-	return $found;
+	return $selector;
+}
+
+# Purpose:        List the keys in the key directory.
+# Entry criteria: $self->{keydir} is set.
+# Exit status:    An array reference of the file names ending .private, sorted;
+#                 undef, after a warning, when the directory cannot be read.
+# Side effects:   Reads a directory; may warn.
+sub _private_keys :Private
+{
+	my $self = shift;
+
+	# An unreadable directory is a warning and an unsigned message, so autodie
+	# stands aside.
+	no autodie qw(opendir closedir);
+
+	my $keys;
+	if(opendir(my $dh, $self->{'keydir'})) {
+		$keys = [ sort grep { /\Q$KEY_SUFFIX\E\z/ } readdir($dh) ];
+		closedir($dh);
+	} else {
+		$self->_say('keydir_unreadable', { 'keydir' => $self->{'keydir'}, 'os_error' => "$!" });
+	}
+
+	return $keys;
+}
+
+=head2 B<i18n> $key, \%arguments
+
+Returns the text of a message, in the language this object speaks, with the
+arguments put in.  This is the one place any sentence is made, so a caller can
+change every message by giving B<new> a C<messages> option.
+
+A message is a format whose placeholders are named, C<%{name}s> or
+C<%{name}d>, and which may carry the usual C<sprintf> width and flags
+(C<%{name}-8s>).  It may instead be a hash of formats, from which one is chosen
+by the arguments: C<count> selects C<zero>, C<one> or C<other> (C<other> when
+there is no better one), and C<variant> - a grammatical gender, for instance -
+selects the entry of that name, or C<variant.one>, C<variant.other> and so on
+when the choice is both.  An argument a format asks for and was not given is an
+error, not an empty string.
+
+Croaks if C<$key> is not a message that is defined.
+
+=head3 EXAMPLE
+
+	my $text = $dkim->i18n('keys_ambiguous', { keydir => '/etc/dkim', count => 2 });
+	# '... /etc/dkim holds 2 keys; name the selector to choose one'
+
+	my $french = Mail::Send::DKIM->new(messages => {
+		'keys_ambiguous' => {
+			'one' => '%{keydir}s contient %{count}d cle',
+			'other' => '%{keydir}s contient %{count}d cles',
+		},
+	});
+
+=head3 API SPECIFICATION
+
+=head4 Input (Params::Validate::Strict)
+
+	{
+		key => { type => 'string' },
+		arguments => { type => 'hashref', optional => 1 },
+	}
+
+=head4 Output (Return::Set)
+
+	{ type => 'string' }
+
+=head3 MESSAGES
+
+	Message key        Meaning and resolution
+	unknown_message    The key is not in the catalogue: fix the caller, or add it to messages.
+	missing_argument   A placeholder has no argument: pass it.
+
+=head3 FORMAL SPECIFICATION
+
+	┌─ I18n ──────────────────────────────────────────────
+	│ ΞSigner;  key? : STRING;  args? : STRING ⇸ VALUE;  text! : STRING
+	├─────────────────────────────────────────────────────
+	│ key? ∈ dom messages
+	│ text! = format(choose(messages(key?), args?.count, args?.variant), args?)
+	└─────────────────────────────────────────────────────
+
+=cut
+
+
+sub i18n
+{
+	my ($self, $key, $args) = @_;
+
+	$args //= {};
+
+	# The default catalogue is the fallback, so a caller's catalogue cannot
+	# take away the message that reports a missing message.
+	my $entry = $self->{'messages'}->{$key} // $DEFAULT_MESSAGES{$key};
+	croak($self->i18n('unknown_message', { 'key' => $key })) unless(defined($entry));
+
+	return $self->_interpolate($key, _choose_format($entry, $args), $args);
+}
+
+# Purpose:        Pick the format of a message that has variants.
+# Entry criteria: $entry is a string, or a hash reference of formats keyed by
+#                 zero, one, other, a variant name, or "variant.count".
+# Exit status:    The format.  The most specific variant that exists wins, and
+#                 "other" is the fall-back, then any entry at all.
+# Side effects:   None.
+sub _choose_format :Private
+{
+	my ($entry, $args) = @_;
+
+	my $format = $entry;
+
+	if(ref($entry) eq 'HASH') {
+		my $variant = $args->{'variant'};
+		my $count = $args->{'count'};
+		my $plural = !defined($count) ? undef : ($count == 0 ? 'zero' : ($count == 1 ? 'one' : 'other'));
+
+		my @candidates = (
+			(defined($variant) && defined($plural) ? "$variant.$plural" : ()),
+			(defined($variant) ? $variant : ()),
+			(defined($plural) ? $plural : ()),
+			'other',
+		);
+		my ($chosen) = grep { exists($entry->{$_}) } @candidates;
+		$format = $entry->{ $chosen // (sort keys %{$entry})[0] };
+	}
+
+	return $format;
+}
+
+# Purpose:        Put the arguments into a format with named placeholders.
+# Entry criteria: $format uses %{name}s / %{name}d placeholders.
+# Exit status:    The text.  Croaks, with the missing_argument message, if a
+#                 placeholder has no argument.
+# Side effects:   None.
+sub _interpolate :Private
+{
+	my ($self, $key, $format, $args) = @_;
+
+	# sprintf has positional arguments, so each named placeholder is turned
+	# into the next position, and the values are given in that order.
+	my @names;
+	$format =~ s{%\{(\w+)\}([-+ 0#]*\d*(?:\.\d+)?[sd])}{ push(@names, $1); '%' . scalar(@names) . '$' . $2 }ge;
+
+	foreach my $name (@names) {
+		croak($self->i18n('missing_argument', { 'key' => $key, 'argument' => $name })) unless(exists($args->{$name}));
+	}
+
+	return sprintf($format, map { $args->{$_} } @names);
+}
+
+# Purpose:        Make the form of a message that is handed to sendmail.
+# Entry criteria: $message is a string.
+# Exit status:    The message with LF line endings and no carriage return
+#                 anywhere, whatever arrived.  A CR is data to the MTA that
+#                 keeps the message - Postfix's sendmail_fix_line_endings and
+#                 Exim both write the CRLF of SMTP themselves - so one that
+#                 survived would reach the receiver doubled, and the message
+#                 would fail the signature it was just given.
+# Side effects:   None.
+sub _local :Private
+{
+	my $message = shift;
+
+	$message =~ tr/\r//d;
+
+	return $message;
+}
+
+# Purpose:        Make the set of domains this host signs for.
+# Entry criteria: $domains is an array reference, a string separated by commas
+#                 or spaces, or undef.
+# Exit status:    A hash reference whose keys are the lower-case domains.
+# Side effects:   None.
+sub _domain_set :Private
+{
+	my $domains = shift;
+
+	my @domains = ref($domains) eq 'ARRAY' ? @{$domains} : split($DOMAIN_SEPARATOR, $domains // '');
+
+	return { map { lc($_) => 1 } grep { length } @domains };
+}
+
+# Purpose:        The first line of an error, which is the part worth saying.
+# Entry criteria: $text is a string, perhaps with a trailing newline.
+# Exit status:    The text without its trailing whitespace.
+# Side effects:   None.
+sub _first_line :Private
+{
+	my $text = shift;
+
+	$text =~ s/\s+\z//;
+
+	return $text;
+}
+
+# Purpose:        Warn, in the language of this object.
+# Entry criteria: $key is in the message catalogue.
+# Exit status:    $self, so calls can be chained.
+# Side effects:   A warning on standard error, reported where the caller of this
+#                 module called it, by Carp.  Protected, so that a subclass may
+#                 say things in the same way.
+sub _say :Protected
+{
+	my ($self, $key, $args) = @_;
+
+	carp($self->i18n($key, $args));
+
+	return $self;
 }
 
 1;
@@ -503,6 +1158,84 @@ somebody else's values; for that reason no example crontab file is shipped or
 installed.  A job of your own takes the same shape with F<mail-dkim> in place of
 the wrapper: C<DKIM_DOMAINS> and C<DKIM_KEYDIR> say what to sign for, and the
 arguments given to it are passed to sendmail(1) as they are.
+
+=head1 LIMITATIONS
+
+These are the weaknesses of the design, set down so that they are chosen rather
+than found.
+
+=over 4
+
+=item * One key for every domain
+
+A single selector and key serve every domain in C<domains>.  A host that signs
+for several customers with a key each cannot say so; it needs one object per
+key.
+
+=item * Only the From: domain is looked at
+
+A message is signed when its first C<From:> domain is ours.  A message with two
+C<From:> headers is signed with the first one's domain, and the signature does
+not oversign the header, so a second C<From:> can be added later without
+breaking it.  Refusing such a message would be the safer rule.
+
+=item * The key is not checked
+
+That the key file is readable is checked; its mode is not, and nor is whether
+the public half is published in DNS.  A key that is readable by others is not
+reported.
+
+=item * The whole message is in memory
+
+The message is a string, held two or three times over while it is signed.  A
+very large message costs that much memory; a stream would not.
+
+=item * Sending cannot be interrupted
+
+B<send> waits for sendmail as long as sendmail takes.  There is no timeout.
+
+=item * A bare carriage return is removed
+
+The local form has no CR at all, as specified, so a lone CR inside a line is
+deleted instead of becoming a line break, and the two halves of the line join.
+
+=item * Addresses are RFC 822
+
+L<Mail::Address> is a lenient RFC 822 parser.  Internationalised addresses and
+domain names are not understood, and a From: domain that is not plain ASCII is
+treated as having none.
+
+=item * The messages are English, with English plurals
+
+The catalogue is English.  C<count> knows C<zero>, C<one> and C<other>, which is
+not enough for languages with more plural forms; a translation that needs them
+would be better served by L<Locale::Maketext>, which this module does not use
+to avoid a language class for six sentences.  The text of an operating system
+error follows the locale of the process that raised it, which this module does
+not control.
+
+=item * log_send reads sendmail's options approximately
+
+B<log_send> knows which of sendmail's options take a value, but not every
+MTA's.  An option it has not heard of that takes a value would have that value
+logged as a recipient.
+
+=item * rsa-sha256 only
+
+There is one signature, C<rsa-sha256> with C<relaxed> canonicalization.  Ed25519
+and a second signature are not offered.
+
+=item * Windows
+
+L</PLATFORMS> applies.
+
+=item * Private means private
+
+The helpers whose names begin with an underscore are enforced private
+(L<Sub::Private>) and the message writer is protected (L<Sub::Protected>), at
+the cost of a check on every call.  A subclass cannot replace a private helper.
+
+=back
 
 =head1 SEE ALSO
 

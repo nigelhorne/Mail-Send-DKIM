@@ -2,14 +2,22 @@
 
 requires 'perl', '5.016';
 
+requires 'Carp';
+requires 'File::Basename';
 requires 'IO::Compress::Gzip';
 requires 'IO::Compress::Zip';
 requires 'IO::Uncompress::Gunzip';
 requires 'IO::Uncompress::Unzip';
+requires 'IPC::System::Simple';   # autodie's :system
+requires 'Mail::Address';
 requires 'Mail::DKIM';
+requires 'Mail::DKIM::Signer';
 requires 'Object::Configure';
 requires 'Params::Get';
+requires 'Params::Validate::Strict';
 requires 'Readonly';
+requires 'Sub::Private';
+requires 'Sub::Protected';
 requires 'Sys::Syslog';
 requires 'XML::PP';
 
@@ -18,6 +26,7 @@ on 'configure' => sub {
 };
 
 on 'test' => sub {
+	requires 'File::Spec';
 	requires 'File::Temp';
 	requires 'Net::DNS';
 	requires 'Pod::Github';
