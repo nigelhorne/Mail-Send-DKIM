@@ -31,7 +31,10 @@ on 'test' => sub {
 	requires 'Net::DNS';
 	requires 'Pod::Github';
 	requires 'Test::DescribeMe';
+	requires 'Test::Memory::Cycle';
+	requires 'Test::Mockingbird';
 	requires 'Test::Most';
+	requires 'Test::Returns';
 	requires 'Time::HiRes';
 };
 

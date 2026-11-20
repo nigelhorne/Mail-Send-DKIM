@@ -566,9 +566,10 @@ Croaks if `$key` is not a message that is defined.
 
 #### Messages
 
-```
+```perl
     Message key        Meaning and resolution
     unknown_message    The key is not in the catalogue: fix the caller, or add it to messages.
+    bad_arguments      The arguments were not a hash reference: pass { name => value }.
     missing_argument   A placeholder has no argument: pass it.
 ```
 

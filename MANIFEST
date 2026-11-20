@@ -15,6 +15,7 @@ README.md
 t/dmarc-check-mail.t
 t/dmarc-report.t
 t/dmarc-weekly.t
+t/function.t
 t/headers.t
 t/i18n.t
 t/locales.t

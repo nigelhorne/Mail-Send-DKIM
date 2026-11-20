@@ -113,7 +113,7 @@ subtest 'the helpers are private, and only the message writer may be extended' =
 	local $Sub::Private::config{'harness_bypass'} = 0;
 	local $Sub::Protected::config{'harness_bypass'} = 0;
 
-	foreach my $private (qw(_local _parse_headers _addresses _domain_set _parse_sendmail_args _first_line _choose_format)) {
+	foreach my $private (qw(_local _parse_headers _addresses _domain_set _parse_sendmail_args _trim_error _choose_format)) {
 		throws_ok { no strict 'refs'; &{"Mail::Send::DKIM::$private"}('x') } qr/private subroutine of Mail::Send::DKIM/,
 			"$private cannot be called from outside";
 	}

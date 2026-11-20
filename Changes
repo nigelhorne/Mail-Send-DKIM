@@ -24,7 +24,16 @@ Revision history for Mail::Send::DKIM - Sign mail with DKIM, and summarise DMARC
 	  the public routines; more SYNOPSIS patterns; COMMON PITFALLS, ENCODING,
 	  LIMITATIONS, FORMAL SPECIFICATION (all the Z notation, in one place)
 	  and STATE DIAGRAM sections.
-	- Tests: t/i18n.t, t/headers.t and t/locales.t (OS error strings under
+	- Fixes found by the new function tests: $@ and $? are no longer
+	  clobbered by sign and send; syslog is closed even when writing to it
+	  fails; a directory or a bare ".private" is no longer taken for a key;
+	  a sendmail named "" is a clean failure; an empty or undefined message
+	  key, a non-numeric count, an undefined argument value, a stray percent
+	  sign in a message, and an empty catalogue entry no longer make Perl
+	  warn; the message "bad_arguments" reports arguments that are not a hash
+	  reference; "undisclosed-recipients:;" is no recipient; a From: header
+	  holding a control character is not trusted for a domain.
+	- Tests: t/function.t (every function, with mocks), t/i18n.t, t/headers.t and t/locales.t (OS error strings under
 	  en_US, de_DE, ja_JP and zh_CN locales).  readme.t sets PERL_UNICODE=S
 	  because the POD now contains Z notation.
 	- New prerequisites: Mail::Address, Params::Validate::Strict,

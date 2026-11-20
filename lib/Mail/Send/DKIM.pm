@@ -12,6 +12,7 @@ use warnings;
 use autodie qw(:file :filesys :system);
 
 use Carp qw(carp croak);
+use Errno qw(ENOENT);
 use File::Basename qw(basename);
 use Mail::Address;
 use Mail::DKIM::Signer;
@@ -19,6 +20,7 @@ use Object::Configure;
 use Params::Get;
 use Params::Validate::Strict qw(validate_strict);
 use Readonly;
+use Scalar::Util qw(looks_like_number);
 # Helpers are private to this package, enforced at call time so that method
 # dispatch ($self->_helper) is covered as well as plain function calls.
 use Sub::Private { 'mode' => 'enforce' };
@@ -72,6 +74,7 @@ Readonly my %DEFAULT_MESSAGES => (
 		'other' => 'Mail::Send::DKIM: %{keydir}s holds %{count}d keys; name the selector to choose one',
 	},
 	'syslog_failed' => 'Mail::Send::DKIM: cannot write to syslog: %{error}s',
+	'bad_arguments' => 'Mail::Send::DKIM: the arguments of a message must be a hash reference, not %{type}s',
 	'unknown_message' => 'Mail::Send::DKIM: no message is defined for the key "%{key}s"',
 	'missing_argument' => 'Mail::Send::DKIM: the message "%{key}s" needs the argument "%{argument}s"',
 );
@@ -439,7 +442,8 @@ sub _sign_for :Private
 		# convention; otherwise the key is <keydir>/<selector>.private.
 		my $keyfile = $self->{'keyfile'} // "$self->{'keydir'}/$selector$KEY_SUFFIX";
 
-		if(-r $keyfile) {
+		# A directory is readable too, but it is not a key.
+		if(-f $keyfile && -r $keyfile) {
 			$signed = $self->_dkim_sign($domain, $selector, $keyfile, $message);
 		} else {
 			$self->_say('key_unreadable', { 'keyfile' => $keyfile, 'domain' => $domain });
@@ -458,6 +462,9 @@ sub _sign_for :Private
 sub _dkim_sign :Private
 {
 	my ($self, $domain, $selector, $keyfile, $message) = @_;
+
+	# eval sets $@, which belongs to the caller.
+	local $@;
 
 	# DKIM hashes the message in the form it travels in, where every line
 	# ends CRLF, so the signature is made over a CRLF copy of what arrived,
@@ -478,7 +485,7 @@ sub _dkim_sign :Private
 
 		$signer->signature->as_string() . "\n" . $local;
 	};
-	$self->_say('sign_failed', { 'domain' => $domain, 'error' => _first_line($@ || 'unknown error') }) unless(defined($signed));
+	$self->_say('sign_failed', { 'domain' => $domain, 'error' => _trim_error($@ || 'unknown error') }) unless(defined($signed));
 
 	return $signed;
 }
@@ -548,15 +555,19 @@ sub send
 	# write would then kill us with SIGPIPE before its status could be read.
 	# A handler, not IGNORE: an ignored signal is also ignored by the child.
 	local $SIG{'PIPE'} = sub { };
+	# close() leaves sendmail's wait status in $?, which belongs to the caller.
+	local $?;
 
 	my $status = $EXIT_CANNOT_RUN;
 
-	if(open(my $sendmail, '|-', $self->{'sendmail'}, @args)) {
+	# An empty name would make perl complain about the open itself, not about the program.
+	if(length($self->{'sendmail'}) && open(my $sendmail, '|-', $self->{'sendmail'}, @args)) {
 		my $written = print {$sendmail} _local($message // '');
 
 		# close() waits for sendmail; its exit status is in $? afterwards.
 		$status = close($sendmail) ? ($written ? $EXIT_ACCEPTED : $EXIT_CANNOT_RUN) : (($? >> 8) || $EXIT_CANNOT_RUN);
 	} else {
+		$! = ENOENT unless(length($self->{'sendmail'}));
 		$self->_say('sendmail_failed', { 'sendmail' => $self->{'sendmail'}, 'os_error' => "$!" });
 	}
 
@@ -679,7 +690,8 @@ sub _parse_sendmail_args :Private
 		} elsif($arg =~ /\A-(.*)\z/s) {
 			# A cluster of flags, such as -ti, none of which takes a value.
 			$parsed{'reads_headers'} = 1 if($1 =~ /t/);
-		} else {
+		} elsif(length($arg)) {
+			# An empty argument names nobody.
 			push(@{ $parsed{'recipients'} }, $arg);
 		}
 	}
@@ -696,13 +708,21 @@ sub _write_syslog :Private
 {
 	my ($self, $line) = @_;
 
+	# eval sets $@, which belongs to the caller.
+	local $@;
+
 	my $written = eval {
 		Sys::Syslog::openlog($SYSLOG_IDENT, $SYSLOG_OPTIONS, $SYSLOG_FACILITY);
 		Sys::Syslog::syslog($SYSLOG_LEVEL, '%s', $line);
-		Sys::Syslog::closelog();
 		1;
 	};
-	$self->_say('syslog_failed', { 'error' => _first_line($@) }) unless($written);
+	my $error = $@;
+
+	# The connection is closed whether or not the line went in, and a failure
+	# to close it must not turn a line that was written into a failure.
+	eval { Sys::Syslog::closelog(); 1 };
+
+	$self->_say('syslog_failed', { 'error' => _trim_error($error) }) unless($written);
 
 	return $written;
 }
@@ -731,6 +751,22 @@ sub _parse_headers :Private
 	return \%headers;
 }
 
+# Purpose:        Parse a header value into addresses.
+# Entry criteria: $value is a string.
+# Exit status:    The list of Mail::Address objects, in order, as many as could
+#                 be made of it.
+# Side effects:   None.  The parser's complaints about a malformed header are
+#                 dropped: a header is the sender's to get wrong, and a
+#                 warning in the log for it would be noise.
+sub _parse_addresses :Private
+{
+	my $value = shift;
+
+	local $SIG{'__WARN__'} = sub { };
+
+	return Mail::Address->parse($value);
+}
+
 # Purpose:        The addresses in a header value.
 # Entry criteria: $value is a header value, or undef.
 # Exit status:    An array reference of the addresses, in order; empty when
@@ -740,7 +776,8 @@ sub _addresses :Private
 {
 	my $value = shift;
 
-	return defined($value) ? [ grep { length } map { $_->address() // '' } Mail::Address->parse($value) ] : [];
+	# A group with no members, "undisclosed-recipients:;", comes back as its name.
+	return defined($value) ? [ grep { length && !/:\z/ } map { $_->address() // '' } _parse_addresses($value) ] : [];
 }
 
 =head2 B<from_domain> $message
@@ -789,10 +826,12 @@ sub from_domain
 	my $from = _parse_headers($message)->{'from'};
 	my $host;
 
-	if(defined($from)) {
+	# A control character in the header, a NUL especially, can make two
+	# parsers read two different addresses, so no domain is trusted from it.
+	if(defined($from) && $from !~ /[\x00-\x08\x0b-\x1f\x7f]/) {
 		# The first address is the author; display names and comments around
 		# it are Mail::Address's to deal with, not ours.
-		my ($address) = Mail::Address->parse($from);
+		my ($address) = _parse_addresses($from);
 		$host = $address->host() if(defined($address));
 	}
 
@@ -874,7 +913,7 @@ sub selector
 
 # Purpose:        List the keys in the key directory.
 # Entry criteria: $self->{keydir} is set.
-# Exit status:    An array reference of the file names ending .private, sorted;
+# Exit status:    An array reference of the names of the files ending .private, sorted;
 #                 undef, after a warning, when the directory cannot be read.
 # Side effects:   Reads a directory; may warn.
 sub _private_keys :Private
@@ -887,7 +926,9 @@ sub _private_keys :Private
 
 	my $keys;
 	if(opendir(my $dh, $self->{'keydir'})) {
-		$keys = [ sort grep { /\Q$KEY_SUFFIX\E\z/ } readdir($dh) ];
+		# A key is a file with a name before the suffix: a directory called
+		# x.private, or a file called just .private, is not one.
+		$keys = [ sort grep { /\A.+\Q$KEY_SUFFIX\E\z/s && -f "$self->{'keydir'}/$_" } readdir($dh) ];
 		closedir($dh);
 	} else {
 		$self->_say('keydir_unreadable', { 'keydir' => $self->{'keydir'}, 'os_error' => "$!" });
@@ -942,6 +983,7 @@ Croaks if C<$key> is not a message that is defined.
 
 	Message key        Meaning and resolution
 	unknown_message    The key is not in the catalogue: fix the caller, or add it to messages.
+	bad_arguments      The arguments were not a hash reference: pass { name => value }.
 	missing_argument   A placeholder has no argument: pass it.
 
 =cut
@@ -952,6 +994,8 @@ sub i18n
 	my ($self, $key, $args) = @_;
 
 	$args //= {};
+	$key //= '';
+	croak($self->i18n('bad_arguments', { 'type' => ref($args) || 'a plain value' })) unless(ref($args) eq 'HASH');
 
 	# The default catalogue is the fallback, so a caller's catalogue cannot
 	# take away the message that reports a missing message.
@@ -976,7 +1020,8 @@ sub _choose_format :Private
 	if(ref($entry) eq 'HASH') {
 		my $variant = $args->{'variant'};
 		my $count = $args->{'count'};
-		my $plural = !defined($count) ? undef : ($count == 0 ? 'zero' : ($count == 1 ? 'one' : 'other'));
+		# A count that is not a number selects no plural form.
+		my $plural = !looks_like_number($count // '') ? undef : ($count == 0 ? 'zero' : ($count == 1 ? 'one' : 'other'));
 
 		my @candidates = (
 			(defined($variant) && defined($plural) ? "$variant.$plural" : ()),
@@ -985,14 +1030,17 @@ sub _choose_format :Private
 			'other',
 		);
 		my ($chosen) = grep { exists($entry->{$_}) } @candidates;
-		$format = $entry->{ $chosen // (sort keys %{$entry})[0] };
+		# An empty entry says nothing, rather than failing.
+		my $name = $chosen // (sort keys %{$entry})[0];
+		$format = defined($name) ? ($entry->{$name} // '') : '';
 	}
 
 	return $format;
 }
 
 # Purpose:        Put the arguments into a format with named placeholders.
-# Entry criteria: $format uses %{name}s / %{name}d placeholders.
+# Entry criteria: $format uses %{name}s / %{name}d placeholders, and %% for a
+#                 percent sign.  Anything else in it is plain text.
 # Exit status:    The text.  Croaks, with the missing_argument message, if a
 #                 placeholder has no argument.
 # Side effects:   None.
@@ -1000,16 +1048,25 @@ sub _interpolate :Private
 {
 	my ($self, $key, $format, $args) = @_;
 
-	# sprintf has positional arguments, so each named placeholder is turned
-	# into the next position, and the values are given in that order.
-	my @names;
-	$format =~ s{%\{(\w+)\}([-+ 0#]*\d*(?:\.\d+)?[sd])}{ push(@names, $1); '%' . scalar(@names) . '$' . $2 }ge;
+	# Only the placeholders are handed to sprintf, one at a time, so a stray
+	# percent sign in the text, or in a value, can never be taken for a
+	# directive of its own.
+	my $text = '';
+	foreach my $part (split(/(%\{\w+\}[-+ 0#]*\d*(?:\.\d+)?[sd])/, $format)) {
+		if($part =~ /\A%\{(\w+)\}(.+)\z/s) {
+			my ($name, $spec) = ($1, $2);
+			croak($self->i18n('missing_argument', { 'key' => $key, 'argument' => $name })) unless(exists($args->{$name}));
 
-	foreach my $name (@names) {
-		croak($self->i18n('missing_argument', { 'key' => $key, 'argument' => $name })) unless(exists($args->{$name}));
+			# A value that is not a number is a caller's mistake in a %d, not worth a warning.
+			no warnings 'numeric';
+			$text .= sprintf("%$spec", $args->{$name} // ($spec =~ /d\z/ ? 0 : ''));
+		} else {
+			(my $plain = $part) =~ s/%%/%/g;
+			$text .= $plain;
+		}
 	}
 
-	return sprintf($format, map { $args->{$_} } @names);
+	return $text;
 }
 
 # Purpose:        Make the form of a message that is handed to sendmail.
@@ -1041,14 +1098,14 @@ sub _domain_set :Private
 
 	my @domains = ref($domains) eq 'ARRAY' ? @{$domains} : split($DOMAIN_SEPARATOR, $domains // '');
 
-	return { map { lc($_) => 1 } grep { length } @domains };
+	return { map { lc($_) => 1 } grep { defined && length } @domains };
 }
 
-# Purpose:        The first line of an error, which is the part worth saying.
+# Purpose:        Tidy an error for use inside a sentence.
 # Entry criteria: $text is a string, perhaps with a trailing newline.
 # Exit status:    The text without its trailing whitespace.
 # Side effects:   None.
-sub _first_line :Private
+sub _trim_error :Private
 {
 	my $text = shift;
 
