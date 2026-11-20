@@ -12,6 +12,7 @@ use strict;
 use warnings;
 
 use Test::Most;
+use Test::Needs;
 
 use Config;
 use File::Basename qw(dirname);
@@ -28,8 +29,8 @@ my $SCRIPT = File::Spec->catfile($Bin, File::Spec->updir(), 'bin', 'mail-dkim');
 
 BAIL_OUT("Cannot find $SCRIPT") unless(-r $SCRIPT);
 
-plan skip_all => 'Mail::DKIM is needed to sign and verify'
-	unless(eval { require Mail::DKIM::Signer; require Mail::DKIM::Verifier; require Mail::DKIM::DNS; require Net::DNS::RR; 1 });
+# What signing and verifying need; the suite is skipped, not failed, without them.
+test_needs qw(Mail::DKIM::Signer Mail::DKIM::Verifier Mail::DKIM::DNS Net::DNS::RR);
 
 my $openssl;
 foreach my $dir (File::Spec->path()) {

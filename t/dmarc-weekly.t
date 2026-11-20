@@ -11,6 +11,7 @@ use strict;
 use warnings;
 
 use Test::Most;
+use Test::Needs;
 
 use Cwd qw(abs_path);
 use File::Basename qw(dirname);
@@ -362,8 +363,8 @@ subtest 'the crontab line names a perl that can load XML::PP' => sub {
 };
 
 subtest 'the alert is signed by mail-dkim when it is there' => sub {
-	plan skip_all => 'openssl and Mail::DKIM are needed to sign an alert'
-		unless($OPENSSL && eval { require Mail::DKIM::Signer; 1 });
+	plan skip_all => 'openssl is needed to make a key' unless($OPENSSL);
+	test_needs 'Mail::DKIM::Signer';
 
 	my $home = fresh_home('signed-alert');
 	my $dir = reports_dir('signed-alert');
@@ -402,8 +403,8 @@ subtest 'the alert is signed by mail-dkim when it is there' => sub {
 };
 
 subtest 'the shipped signer runs under the perl the wrapper uses, not the first one on PATH' => sub {
-	plan skip_all => 'openssl and Mail::DKIM are needed to sign an alert'
-		unless($OPENSSL && eval { require Mail::DKIM::Signer; 1 });
+	plan skip_all => 'openssl is needed to make a key' unless($OPENSSL);
+	test_needs 'Mail::DKIM::Signer';
 
 	my $home = fresh_home('signer-perl');
 	my $dir = reports_dir('signer-perl');
@@ -511,9 +512,9 @@ subtest 'the installed wrapper works from a prefix, with no PERL5LIB' => sub {
 
 	# The alert is the interesting half: the wrapper hands it to the signer
 	# beside itself, which loads the module from PREFIX/lib/perl5 or not at all.
-	SKIP: {
-		skip 'openssl and Mail::DKIM are needed to sign an alert', 3
-			unless($OPENSSL && eval { require Mail::DKIM::Signer; 1 });
+	subtest 'the installed copy signs an alert' => sub {
+		plan skip_all => 'openssl is needed to make a key' unless($OPENSSL);
+		test_needs 'Mail::DKIM::Signer';
 
 		my $keys = File::Spec->catdir($home, 'keys');
 		mkdir($keys) or die "Cannot mkdir $keys: $!";
@@ -537,7 +538,7 @@ subtest 'the installed wrapper works from a prefix, with no PERL5LIB' => sub {
 		is($stderr, '', 'and says nothing on stderr') or diag($stderr);
 		like(slurp($capture), qr/\ADKIM-Signature: /,
 			'the alert was signed, so the signer found the module under lib/perl5');
-	}
+	};
 };
 
 done_testing();

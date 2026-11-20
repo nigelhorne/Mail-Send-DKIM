@@ -34,6 +34,7 @@ on 'test' => sub {
 	requires 'Test::Memory::Cycle';
 	requires 'Test::Mockingbird';
 	requires 'Test::Most';
+	requires 'Test::Needs';
 	requires 'Test::Returns';
 	requires 'Time::HiRes';
 };
