@@ -1,0 +1,19 @@
+# Not distributed (see MANIFEST.SKIP).
+#
+# The regular expressions here are short, and /x would make them harder to
+# read, not easier.
+[-RegularExpressions::RequireExtendedFormatting]
+
+# no warnings is used for one category, in the smallest scope that needs it:
+# 'exec' (the module reports a failed exec itself) and 'numeric' (a %d given a
+# word is the caller's mistake, not worth a warning).
+[TestingAndDebugging::ProhibitNoWarnings]
+allow = exec numeric
+
+# Params::Get takes \@_ itself, and from_domain is both a function and a method,
+# so these three subroutines read their arguments in other ways than "my (...) = @_".
+[-Subroutines::RequireArgUnpacking]
+
+# One chain of options, read in the order sendmail reads them.
+[ControlStructures::ProhibitCascadingIfElse]
+max_elsif = 5

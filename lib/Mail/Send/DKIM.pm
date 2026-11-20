@@ -27,7 +27,7 @@ use Sub::Private { 'mode' => 'enforce' };
 use Sub::Protected;
 use Sys::Syslog ();
 
-use version; our $VERSION = version->declare('0.002.0');
+use version; our $VERSION = version->declare('0.003.0');
 
 # What the signature is made with: the shape receiving sites expect.
 Readonly my $ALGORITHM => 'rsa-sha256';
@@ -99,7 +99,7 @@ Mail::Send::DKIM - sign a message with DKIM and hand it to sendmail
 
 =head1 VERSION
 
-0.002.0
+0.003.0
 
 =head1 SYNOPSIS
 
@@ -179,11 +179,11 @@ the command line programs needs no configuration of its own.
 
 =head1 PROGRAMS
 
-The distribution is named after this module and installs four programs with
+The distribution is named after this module and installs five programs with
 it, each with a page of its own: C<perldoc bin/mail-dkim>,
-C<perldoc bin/dmarc-report.pl>, C<perldoc bin/dmarc-check-mail.pl> and
-C<perldoc bin/dmarc-weekly.sh> in a checkout, and the same pages as manual
-pages once installed.
+C<perldoc bin/dmarc-report.pl>, C<perldoc bin/dmarc-summary>,
+C<perldoc bin/dmarc-check-mail.pl> and C<perldoc bin/dmarc-weekly.sh> in a
+checkout, and the same pages as manual pages once installed.
 
 =over 4
 
@@ -203,6 +203,14 @@ every expected one whose mail did not authenticate, and every message that was
 quarantined or rejected by policy despite passing.  The exit status is non-zero
 when anything needs looking at.  Its page has the options.
 
+=item L<dmarc-summary|https://github.com/nigelhorne/Mail-Send-DKIM/blob/master/bin/dmarc-summary>
+
+The shorter reading of the same reports: a line per source address with its
+DKIM and SPF verdicts, the disposition applied, whether the address is one of
+ours and who owns it, over every report in F<~/Downloads>, plain or gzipped.
+Where B<dmarc-report.pl> decides whether anything needs acting on and says so
+in its exit status, this one is for reading.
+
 =item L<dmarc-weekly.sh|https://github.com/nigelhorne/Mail-Send-DKIM/blob/master/bin/dmarc-weekly.sh>
 
 The cron wrapper around it: silent when the week is clean, a mail with the full
@@ -220,7 +228,7 @@ looks like.
 
 =back
 
-The three DMARC programs are the reason the module exists: they report on the
+The four DMARC programs are the reason the module exists: they report on the
 mail it signs, and the weekly one sends its own report through it.
 
 =head1 METHODS
@@ -261,6 +269,12 @@ the selector comes from its name unless one is given.
 
 The program B<send> hands the message to.  Defaults to C<$ENV{SENDMAIL}>, or
 F</usr/sbin/sendmail>.
+
+=item C<home>
+
+The directory the default B<keydir> is made from, as F<< <home>/dkim >>.
+Defaults to C<$ENV{HOME}>, then the home directory in the password file entry,
+then the current directory.  It matters only when B<keydir> is not given.
 
 =item C<messages>
 
@@ -378,6 +392,9 @@ Signs the message when, and only when, a key for its C<From:> domain can be
 found and used.  Nothing is raised for a failure to sign: the caller sends the
 message as it is.
 
+The key must be a regular file that can be read.  A directory whose name ends
+in F<.private> is not a key, and is reported as one that cannot be read.
+
 =head3 EXAMPLE
 
 	my $signed = $dkim->sign($message);
@@ -464,7 +481,7 @@ sub _dkim_sign :Private
 	my ($self, $domain, $selector, $keyfile, $message) = @_;
 
 	# eval sets $@, which belongs to the caller.
-	local $@;
+	local $@ = '';
 
 	# DKIM hashes the message in the form it travels in, where every line
 	# ends CRLF, so the signature is made over a CRLF copy of what arrived,
@@ -502,6 +519,11 @@ the MTA.
 =head3 PURPOSE
 
 Delivers the message to the local MTA and reports what the MTA said.
+
+A B<sendmail> that is an empty string is the same failure as a program that is
+not there: the return is C<1> and the message is C<sendmail_failed>.  The
+caller's C<$@>, C<$?> and C<$SIG{PIPE}> are the same after the call as before
+it.
 
 =head3 EXAMPLE
 
@@ -542,7 +564,9 @@ caller with SIGPIPE: its exit status is returned.
 
 =cut
 
-sub send
+# send() is the documented name of this method, though perl has a builtin of that
+# name: the builtin is for sockets, which this package does not use.
+sub send ## no critic (Subroutines::ProhibitBuiltinHomonyms)
 {
 	my ($self, $message, @args) = @_;
 
@@ -556,7 +580,7 @@ sub send
 	# A handler, not IGNORE: an ignored signal is also ignored by the child.
 	local $SIG{'PIPE'} = sub { };
 	# close() leaves sendmail's wait status in $?, which belongs to the caller.
-	local $?;
+	local $? = 0;
 
 	my $status = $EXIT_CANNOT_RUN;
 
@@ -567,7 +591,7 @@ sub send
 		# close() waits for sendmail; its exit status is in $? afterwards.
 		$status = close($sendmail) ? ($written ? $EXIT_ACCEPTED : $EXIT_CANNOT_RUN) : (($? >> 8) || $EXIT_CANNOT_RUN);
 	} else {
-		$! = ENOENT unless(length($self->{'sendmail'}));
+		local $! = ENOENT unless(length($self->{'sendmail'}));
 		$self->_say('sendmail_failed', { 'sendmail' => $self->{'sendmail'}, 'os_error' => "$!" });
 	}
 
@@ -592,6 +616,15 @@ return.
 =head3 PURPOSE
 
 Leaves a trace, in the system log, of every message that was passed on.
+
+The arguments are read the way sendmail reads them.  These options take a
+value, which is the rest of the argument or else the next argument, and the
+value is never a recipient: C<-f -F -o -b -p -r -R -V -N -L -X -A -q -C -B>.
+Only C<-f> is used.  A C<-f> with an empty value is a null sender, and is
+logged as C<->.  C<-t> counts when it is alone or in a group of flags
+(C<-ti>), but not when it is inside a value, as in C<-FNigelTest>, and not in
+C<-bt>.  An empty argument names nobody.  The members of an empty group, such
+as C<undisclosed-recipients:;>, are not recipients.
 
 =head3 EXAMPLE
 
@@ -670,7 +703,8 @@ sub _parse_sendmail_args :Private
 	my $args = shift;
 
 	my %parsed = ('recipients' => []);
-	my $pending;	# the letter of an option still waiting for its value
+	# The letter of an option that is still waiting for its value.
+	my $pending;
 
 	foreach my $arg (@{$args}) {
 		if(defined($pending)) {
@@ -709,7 +743,7 @@ sub _write_syslog :Private
 	my ($self, $line) = @_;
 
 	# eval sets $@, which belongs to the caller.
-	local $@;
+	local $@ = '';
 
 	my $written = eval {
 		Sys::Syslog::openlog($SYSLOG_IDENT, $SYSLOG_OPTIONS, $SYSLOG_FACILITY);
@@ -720,7 +754,7 @@ sub _write_syslog :Private
 
 	# The connection is closed whether or not the line went in, and a failure
 	# to close it must not turn a line that was written into a failure.
-	eval { Sys::Syslog::closelog(); 1 };
+	eval { Sys::Syslog::closelog(); 1 }; ## no critic (ErrorHandling::RequireCheckingReturnValueOfEval)
 
 	$self->_say('syslog_failed', { 'error' => _trim_error($error) }) unless($written);
 
@@ -794,6 +828,10 @@ names, comments and groups are handled by a parser that has seen them before.
 Only a plain host name is accepted as a domain (letters, digits, dots and
 hyphens).
 
+A C<From:> header that holds a control character, other than a tab, gives
+C<undef>.  A NUL or an escape character can make two programs read two
+different addresses from the same header, so no domain is trusted from it.
+
 =head3 EXAMPLE
 
 	my $domain = Mail::Send::DKIM::from_domain($message);	# 'example.org'
@@ -851,6 +889,11 @@ warning on standard error.  B<sign> asks this before doing anything else.
 
 Settles which of the keys is to be used, once, in one place.
 
+A key in B<keydir> is a regular file with a name in front of F<.private>.
+A directory with such a name, and a file that is only F<.private>, are not
+keys and are not counted.  A selector that is an empty string is the same as
+none.
+
 =head3 EXAMPLE
 
 	my $selector = $dkim->selector();
@@ -899,11 +942,13 @@ sub selector
 	}
 
 	my $keys = $self->_private_keys();
-	return undef unless(defined($keys));
+	# undef, as the POD says: a bare return would be an empty list when the
+	# result is used in a list, as in a hash of options.
+	return undef unless(defined($keys)); ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 
 	unless(@{$keys} == 1) {
 		$self->_say('keys_ambiguous', { 'keydir' => $self->{'keydir'}, 'count' => scalar(@{$keys}) });
-		return undef;
+		return undef; ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 	}
 
 	($selector = $keys->[0]) =~ s/\Q$KEY_SUFFIX\E\z//;
@@ -950,7 +995,10 @@ by the arguments: C<count> selects C<zero>, C<one> or C<other> (C<other> when
 there is no better one), and C<variant> - a grammatical gender, for instance -
 selects the entry of that name, or C<variant.one>, C<variant.other> and so on
 when the choice is both.  An argument a format asks for and was not given is an
-error, not an empty string.
+error, not an empty string.  An argument that is given as C<undef> is an empty
+string (C<0> in a C<%{name}d>).  A C<count> that is not a number selects no
+plural form.  C<%%> is a percent sign, and any other C<%> that is not part of a
+placeholder is plain text.  An entry that is an empty hash says nothing.
 
 Croaks if C<$key> is not a message that is defined.
 
@@ -1346,11 +1394,17 @@ and a second signature are not offered.
 
 L</PLATFORMS> applies.
 
-=item * Private means private
+=item * Private means private, except under a test harness
 
 The helpers whose names begin with an underscore are enforced private
 (L<Sub::Private>) and the message writer is protected (L<Sub::Protected>), at
 the cost of a check on every call.  A subclass cannot replace a private helper.
+
+Both modules skip their checks whenever the environment variable
+C<HARNESS_ACTIVE> is set, which is how white-box tests reach the helpers.  A
+program that runs with that variable set, by accident or from inside a test
+harness, loses the protection without a word.  The helpers do nothing harmful
+when called, so the guarantee is then only a convention.
 
 =back
 

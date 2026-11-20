@@ -2,6 +2,7 @@
 .pod2github.yml
 bin/dmarc-check-mail.pl
 bin/dmarc-report.pl
+bin/dmarc-summary
 bin/dmarc-weekly.sh
 bin/mail-dkim
 Changes

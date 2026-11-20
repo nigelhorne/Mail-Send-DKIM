@@ -6,7 +6,7 @@ Mail::Send::DKIM - sign a message with DKIM and hand it to sendmail
 
 ## Version
 
-0.002.0
+0.003.0
 
 ## Synopsis
 
@@ -90,11 +90,11 @@ the command line programs needs no configuration of its own.
 
 ## Programs
 
-The distribution is named after this module and installs four programs with
+The distribution is named after this module and installs five programs with
 it, each with a page of its own: `perldoc bin/mail-dkim`,
-`perldoc bin/dmarc-report.pl`, `perldoc bin/dmarc-check-mail.pl` and
-`perldoc bin/dmarc-weekly.sh` in a checkout, and the same pages as manual
-pages once installed.
+`perldoc bin/dmarc-report.pl`, `perldoc bin/dmarc-summary`,
+`perldoc bin/dmarc-check-mail.pl` and `perldoc bin/dmarc-weekly.sh` in a
+checkout, and the same pages as manual pages once installed.
 
 - [mail-dkim](https://github.com/nigelhorne/Mail-Send-DKIM/blob/master/bin/mail-dkim)
 
@@ -112,6 +112,14 @@ pages once installed.
     quarantined or rejected by policy despite passing.  The exit status is non-zero
     when anything needs looking at.  Its page has the options.
 
+- [dmarc-summary](https://github.com/nigelhorne/Mail-Send-DKIM/blob/master/bin/dmarc-summary)
+
+    The shorter reading of the same reports: a line per source address with its
+    DKIM and SPF verdicts, the disposition applied, whether the address is one of
+    ours and who owns it, over every report in `~/Downloads`, plain or gzipped.
+    Where **dmarc-report.pl** decides whether anything needs acting on and says so
+    in its exit status, this one is for reading.
+
 - [dmarc-weekly.sh](https://github.com/nigelhorne/Mail-Send-DKIM/blob/master/bin/dmarc-weekly.sh)
 
     The cron wrapper around it: silent when the week is clean, a mail with the full
@@ -127,7 +135,7 @@ pages once installed.
     sends the same message unsigned, which is what a cron job without the module
     looks like.
 
-The three DMARC programs are the reason the module exists: they report on the
+The four DMARC programs are the reason the module exists: they report on the
 mail it signs, and the weekly one sends its own report through it.
 
 ## Methods
@@ -166,6 +174,12 @@ mail it signs, and the weekly one sends its own report through it.
 
     The program **send** hands the message to.  Defaults to `$ENV{SENDMAIL}`, or
     `/usr/sbin/sendmail`.
+
+- `home`
+
+    The directory the default **keydir** is made from, as `<home>/dkim`.
+    Defaults to `$ENV{HOME}`, then the home directory in the password file entry,
+    then the current directory.  It matters only when **keydir** is not given.
 
 - `messages`
 
@@ -258,6 +272,9 @@ Signs the message when, and only when, a key for its `From:` domain can be
 found and used.  Nothing is raised for a failure to sign: the caller sends the
 message as it is.
 
+The key must be a regular file that can be read.  A directory whose name ends
+in `.private` is not a key, and is reported as one that cannot be read.
+
 #### Example
 
 ```perl
@@ -309,6 +326,11 @@ the MTA.
 #### Purpose
 
 Delivers the message to the local MTA and reports what the MTA said.
+
+A **sendmail** that is an empty string is the same failure as a program that is
+not there: the return is `1` and the message is `sendmail_failed`.  The
+caller's `$@`, `$?` and `$SIG{PIPE}` are the same after the call as before
+it.
 
 #### Example
 
@@ -376,6 +398,15 @@ return.
 
 Leaves a trace, in the system log, of every message that was passed on.
 
+The arguments are read the way sendmail reads them.  These options take a
+value, which is the rest of the argument or else the next argument, and the
+value is never a recipient: `-f -F -o -b -p -r -R -V -N -L -X -A -q -C -B`.
+Only `-f` is used.  A `-f` with an empty value is a null sender, and is
+logged as `-`.  `-t` counts when it is alone or in a group of flags
+(`-ti`), but not when it is inside a value, as in `-FNigelTest`, and not in
+`-bt`.  An empty argument names nobody.  The members of an empty group, such
+as `undisclosed-recipients:;`, are not recipients.
+
 #### Example
 
 ```
@@ -436,6 +467,10 @@ names, comments and groups are handled by a parser that has seen them before.
 Only a plain host name is accepted as a domain (letters, digits, dots and
 hyphens).
 
+A `From:` header that holds a control character, other than a tab, gives
+`undef`.  A NUL or an escape character can make two programs read two
+different addresses from the same header, so no domain is trusted from it.
+
 #### Example
 
 ```perl
@@ -474,6 +509,11 @@ warning on standard error.  **sign** asks this before doing anything else.
 #### Purpose
 
 Settles which of the keys is to be used, once, in one place.
+
+A key in **keydir** is a regular file with a name in front of `.private`.
+A directory with such a name, and a file that is only `.private`, are not
+keys and are not counted.  A selector that is an empty string is the same as
+none.
 
 #### Example
 
@@ -529,7 +569,10 @@ by the arguments: `count` selects `zero`, `one` or `other` (`other` when
 there is no better one), and `variant` - a grammatical gender, for instance -
 selects the entry of that name, or `variant.one`, `variant.other` and so on
 when the choice is both.  An argument a format asks for and was not given is an
-error, not an empty string.
+error, not an empty string.  An argument that is given as `undef` is an empty
+string (`0` in a `%{name}d`).  A `count` that is not a number selects no
+plural form.  `%%` is a percent sign, and any other `%` that is not part of a
+placeholder is plain text.  An entry that is an empty hash says nothing.
 
 Croaks if `$key` is not a message that is defined.
 
@@ -778,11 +821,17 @@ than found.
 
     ["PLATFORMS"](#platforms) applies.
 
-- Private means private
+- Private means private, except under a test harness
 
     The helpers whose names begin with an underscore are enforced private
     ([Sub::Private](https://metacpan.org/pod/Sub%3A%3APrivate)) and the message writer is protected ([Sub::Protected](https://metacpan.org/pod/Sub%3A%3AProtected)), at
     the cost of a check on every call.  A subclass cannot replace a private helper.
+
+    Both modules skip their checks whenever the environment variable
+    `HARNESS_ACTIVE` is set, which is how white-box tests reach the helpers.  A
+    program that runs with that variable set, by accident or from inside a test
+    harness, loses the protection without a word.  The helpers do nothing harmful
+    when called, so the guarantee is then only a convention.
 
 ## See Also
 

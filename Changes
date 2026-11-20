@@ -1,6 +1,10 @@
 Revision history for Mail::Send::DKIM - Sign mail with DKIM, and summarise DMARC reports
 
-0.003.0 Fri Nov 20 08:49:01 AM EST 2026
+0.004.0
+	[ Enhancements ]
+	- Added bin/dmarc-summary
+
+0.003.0	Fri Nov 20 10:31:38 AM EST 2026
 	- Refactor of Mail::Send::DKIM.  Every message it says now comes from one
 	  catalogue through the new public method i18n, with named sprintf
 	  placeholders, plural forms chosen by count and variants (gender); the
@@ -41,8 +45,18 @@ Revision history for Mail::Send::DKIM - Sign mail with DKIM, and summarise DMARC
 	- Tests: t/function.t (every function, with mocks), t/i18n.t, t/headers.t and t/locales.t (OS error strings under
 	  en_US, de_DE, ja_JP and zh_CN locales).  readme.t sets PERL_UNICODE=S
 	  because the POD now contains Z notation.
-	- New prerequisites: Mail::Address, Params::Validate::Strict,
-	  Sub::Private, Sub::Protected, IPC::System::Simple.
+	- The minimum perl is now 5.026: Params::Validate::Strict, which the
+	  module needs, will not install on an older one.
+	- New prerequisites: Mail::Address, Params::Validate::Strict (0.43),
+	  Sub::Private (0.09), Sub::Protected (0.03), IPC::System::Simple, and the
+	  core modules the module and its programs already used, now declared:
+	  autodie, Errno, File::Spec, FindBin, Getopt::Long, Pod::Usage, POSIX,
+	  Scalar::Util, Sys::Hostname.  The tests need Test::Mockingbird (0.14),
+	  Test::Returns (0.05), Test::Memory::Cycle and Test::Needs (0.002010),
+	  and use Test::Needs, not eval, to skip when Mail::DKIM is missing.
+	- POD: the home option of new is documented; so are the key being a
+	  regular file, the way log_send reads sendmail's options, the values
+	  i18n accepts, and the effect of HARNESS_ACTIVE on private methods.
 
 0.002.0 Thu Nov 19 08:12:25 PM EST 2026
 	- mail-dkim: log the sender, recipients and subject of each message
