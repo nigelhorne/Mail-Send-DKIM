@@ -33,6 +33,11 @@ Revision history for Mail::Send::DKIM - Sign mail with DKIM, and summarise DMARC
 	  warn; the message "bad_arguments" reports arguments that are not a hash
 	  reference; "undisclosed-recipients:;" is no recipient; a From: header
 	  holding a control character is not trusted for a domain.
+	- dmarc-weekly.sh: the signer that ships is now run with the perl the
+	  wrapper chose (PERL), not the first perl on PATH its #! line finds,
+	  so the alert is signed on a machine whose system perl lacks Mail::DKIM.
+	  Reported by CPAN Testers (perl 5.42.2, t/dmarc-weekly.t).  The test of
+	  --crontab no longer assumes the perl running the tests is findable.
 	- Tests: t/function.t (every function, with mocks), t/i18n.t, t/headers.t and t/locales.t (OS error strings under
 	  en_US, de_DE, ja_JP and zh_CN locales).  readme.t sets PERL_UNICODE=S
 	  because the POD now contains Z notation.
