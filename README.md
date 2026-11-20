@@ -84,8 +84,8 @@ part-way through the install.
 
 ## Environment
 
-**DKIM\_DOMAINS**, **DKIM\_KEYDIR**, **DKIM\_SELECTOR**, **DKIM\_KEYFILE** and
-**SENDMAIL** are read by **new** when the corresponding option is not given, so
+**DKIM\_DOMAINS**, **DKIM\_SIGNING\_DOMAIN**, **DKIM\_KEYDIR**, **DKIM\_SELECTOR**,
+**DKIM\_KEYFILE** and **SENDMAIL** are read by **new** when the corresponding option is not given, so
 the command line programs needs no configuration of its own.
 
 ## Programs
@@ -147,6 +147,17 @@ mail it signs, and the weekly one sends its own report through it.
     The domains to sign for, either an array reference or a string of them
     separated by commas or spaces.  Defaults to `$ENV{DKIM_DOMAINS}`.  A message
     from any other domain is left alone.
+
+- `signing_domain`
+
+    The domain put in the signature (its `d=` tag), when it is not the domain in
+    the `From:` header - for a host that signs with the key of a parent or
+    organisational domain, say.  Defaults to `$ENV{DKIM_SIGNING_DOMAIN}`; with
+    neither set, the `From:` domain is used.  Which messages are signed is still
+    decided by **domains**, which is matched against the `From:` domain.  The
+    receiver finds the public key at
+    `<selector>._domainkey.<signing_domain>`, and DMARC accepts the signature
+    only if that domain aligns with the `From:` domain.
 
 - `keydir`
 
@@ -221,6 +232,7 @@ is made.
 ```perl
     {
             domains => { type => ['string', 'arrayref'], optional => 1 },
+            signing_domain => { type => 'string', optional => 1 },
             keydir => { type => 'string', optional => 1 },
             selector => { type => 'string', optional => 1 },
             keyfile => { type => 'string', optional => 1 },
@@ -871,6 +883,7 @@ Each comes from the option, else the environment, else a default.
     │ self! : Signer
     ├─────────────────────────────────────────────────────
     │ self!.domains  = { lower(d) | d ∈ split(opts?.domains ∨ DKIM_DOMAINS) ∧ d ≠ "" }
+    │ self!.signing_domain = lower(opts?.signing_domain ∨ DKIM_SIGNING_DOMAIN), or absent
     │ self!.keydir   = opts?.keydir ∨ DKIM_KEYDIR ∨ home ⁀ "/dkim"
     │ self!.sendmail = opts?.sendmail ∨ SENDMAIL ∨ "/usr/sbin/sendmail"
     │ self!.selector, self!.keyfile follow the same rule, and may be absent

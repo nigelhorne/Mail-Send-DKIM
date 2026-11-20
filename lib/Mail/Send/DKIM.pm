@@ -83,6 +83,7 @@ Readonly my %DEFAULT_MESSAGES => (
 # own - is ignored rather than refused.
 Readonly my %NEW_SCHEMA => (
 	'domains' => { 'type' => ['string', 'arrayref'], 'optional' => 1 },
+	'signing_domain' => { 'type' => 'string', 'optional' => 1 },
 	'keydir' => { 'type' => 'string', 'optional' => 1 },
 	'selector' => { 'type' => 'string', 'optional' => 1 },
 	'keyfile' => { 'type' => 'string', 'optional' => 1 },
@@ -173,8 +174,8 @@ part-way through the install.
 
 =head1 ENVIRONMENT
 
-B<DKIM_DOMAINS>, B<DKIM_KEYDIR>, B<DKIM_SELECTOR>, B<DKIM_KEYFILE> and
-B<SENDMAIL> are read by B<new> when the corresponding option is not given, so
+B<DKIM_DOMAINS>, B<DKIM_SIGNING_DOMAIN>, B<DKIM_KEYDIR>, B<DKIM_SELECTOR>,
+B<DKIM_KEYFILE> and B<SENDMAIL> are read by B<new> when the corresponding option is not given, so
 the command line programs needs no configuration of its own.
 
 =head1 PROGRAMS
@@ -242,6 +243,17 @@ mail it signs, and the weekly one sends its own report through it.
 The domains to sign for, either an array reference or a string of them
 separated by commas or spaces.  Defaults to C<$ENV{DKIM_DOMAINS}>.  A message
 from any other domain is left alone.
+
+=item C<signing_domain>
+
+The domain put in the signature (its C<d=> tag), when it is not the domain in
+the C<From:> header - for a host that signs with the key of a parent or
+organisational domain, say.  Defaults to C<$ENV{DKIM_SIGNING_DOMAIN}>; with
+neither set, the C<From:> domain is used.  Which messages are signed is still
+decided by B<domains>, which is matched against the C<From:> domain.  The
+receiver finds the public key at
+F<< <selector>._domainkey.<signing_domain> >>, and DMARC accepts the signature
+only if that domain aligns with the C<From:> domain.
 
 =item C<keydir>
 
@@ -315,6 +327,7 @@ is made.
 
 	{
 		domains => { type => ['string', 'arrayref'], optional => 1 },
+		signing_domain => { type => 'string', optional => 1 },
 		keydir => { type => 'string', optional => 1 },
 		selector => { type => 'string', optional => 1 },
 		keyfile => { type => 'string', optional => 1 },
@@ -365,6 +378,7 @@ sub new
 
 	my $self = {
 		'domains' => _domain_set($params->{'domains'} // $ENV{'DKIM_DOMAINS'}),
+		'signing_domain' => _signing_domain($params->{'signing_domain'} // $ENV{'DKIM_SIGNING_DOMAIN'}),
 		'keydir' => $params->{'keydir'} // $ENV{'DKIM_KEYDIR'} // "$home/$DEFAULT_KEYDIR_NAME",
 		'selector' => $params->{'selector'} // $ENV{'DKIM_SELECTOR'},
 		'keyfile' => $params->{'keyfile'} // $ENV{'DKIM_KEYFILE'},
@@ -461,7 +475,7 @@ sub _sign_for :Private
 
 		# A directory is readable too, but it is not a key.
 		if(-f $keyfile && -r $keyfile) {
-			$signed = $self->_dkim_sign($domain, $selector, $keyfile, $message);
+			$signed = $self->_dkim_sign($self->{'signing_domain'} // $domain, $selector, $keyfile, $message);
 		} else {
 			$self->_say('key_unreadable', { 'keyfile' => $keyfile, 'domain' => $domain });
 		}
@@ -1135,6 +1149,20 @@ sub _local :Private
 	return $message;
 }
 
+# Purpose:        Normalise the domain to put in the signature.
+# Entry criteria: $domain is a string or undef.
+# Exit status:    The lower-case domain, or undef when none is given (an empty
+#                 or blank value counts as none).
+sub _signing_domain :Private
+{
+	my $domain = shift;
+
+	return undef unless(defined($domain) && $domain =~ /\S/);	## no critic (ProhibitExplicitReturnUndef)
+	$domain =~ s/\A\s+|\s+\z//g;
+
+	return lc($domain);
+}
+
 # Purpose:        Make the set of domains this host signs for.
 # Entry criteria: $domains is an array reference, a string separated by commas
 #                 or spaces, or undef.
@@ -1448,6 +1476,7 @@ Each comes from the option, else the environment, else a default.
 	│ self! : Signer
 	├─────────────────────────────────────────────────────
 	│ self!.domains  = { lower(d) | d ∈ split(opts?.domains ∨ DKIM_DOMAINS) ∧ d ≠ "" }
+	│ self!.signing_domain = lower(opts?.signing_domain ∨ DKIM_SIGNING_DOMAIN), or absent
 	│ self!.keydir   = opts?.keydir ∨ DKIM_KEYDIR ∨ home ⁀ "/dkim"
 	│ self!.sendmail = opts?.sendmail ∨ SENDMAIL ∨ "/usr/sbin/sendmail"
 	│ self!.selector, self!.keyfile follow the same rule, and may be absent
